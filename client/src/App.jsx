@@ -1,34 +1,241 @@
-import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, Bug, CheckCircle2, CirclePlus, Search, ShieldCheck, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Activity, AlertTriangle, Bug, CheckCircle2, ChevronDown, CirclePlus,
+  Command, ExternalLink, Filter, LoaderCircle, RefreshCw, Search,
+  ShieldCheck, Sparkles, Zap
+} from "lucide-react";
 
-const seedIssues = [
-  { id: "RB-1042", title: "Checkout fails after applying discount", project: "Storefront", severity: "Critical", status: "Investigating", route: "/checkout", count: 38, age: "4m ago" },
-  { id: "RB-1041", title: "TypeError: Cannot read properties of undefined", project: "Customer Portal", severity: "High", status: "Open", route: "/account/profile", count: 21, age: "18m ago" },
-  { id: "RB-1040", title: "Product images fail on slow connections", project: "Storefront", severity: "Medium", status: "Open", route: "/products/:id", count: 14, age: "42m ago" },
-  { id: "RB-1039", title: "Settings page blank after session refresh", project: "Customer Portal", severity: "High", status: "Resolved", route: "/settings", count: 9, age: "1h ago" }
+const demoIssues = [
+  { id: "demo-1042", title: "Checkout fails after applying discount", project: { name: "Storefront" }, severity: "CRITICAL", status: "INVESTIGATING", pageUrl: "https://store.example/checkout", occurrenceCount: 38, lastSeenAt: new Date(Date.now() - 4 * 60_000).toISOString(), demo: true },
+  { id: "demo-1041", title: "TypeError: Cannot read properties of undefined", project: { name: "Customer Portal" }, severity: "HIGH", status: "OPEN", pageUrl: "https://app.example/account/profile", occurrenceCount: 21, lastSeenAt: new Date(Date.now() - 18 * 60_000).toISOString(), demo: true },
+  { id: "demo-1040", title: "Product images fail on slow connections", project: { name: "Storefront" }, severity: "MEDIUM", status: "OPEN", pageUrl: "https://store.example/products/42", occurrenceCount: 14, lastSeenAt: new Date(Date.now() - 42 * 60_000).toISOString(), demo: true },
+  { id: "demo-1039", title: "Settings page blank after session refresh", project: { name: "Customer Portal" }, severity: "HIGH", status: "RESOLVED", pageUrl: "https://app.example/settings", occurrenceCount: 9, lastSeenAt: new Date(Date.now() - 60 * 60_000).toISOString(), demo: true }
 ];
 
+const severityLabels = { LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" };
+const statusLabels = { OPEN: "Open", INVESTIGATING: "Investigating", RESOLVED: "Resolved", IGNORED: "Ignored" };
+
+function timeAgo(value) {
+  if (!value) return "—";
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function displayId(issue, index) {
+  if (issue.demo) return `RB-${1042 - index}`;
+  return issue.id?.slice(-8).toUpperCase() ?? "RB-NEW";
+}
+
 export default function App() {
-  const [issues, setIssues] = useState(seedIssues);
+  const [issues, setIssues] = useState(demoIssues);
   const [query, setQuery] = useState("");
-  const [api, setApi] = useState("Checking API…");
+  const [severityFilter, setSeverityFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [apiState, setApiState] = useState("checking");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notice, setNotice] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState("");
-  useEffect(() => { fetch("/api/health").then(r => r.ok ? r.json() : Promise.reject()).then(d => setApi("API online")).catch(() => setApi("API unavailable")); }, []);
-  const filtered = useMemo(() => issues.filter(i => [i.id, i.title, i.project, i.route].join(" ").toLowerCase().includes(query.toLowerCase())), [issues, query]);
-  function addIssue(e) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setIssues([{ id: `RB-${1043 + issues.length - seedIssues.length}`, title: title.trim(), project: "ReproBug Demo", severity: "Medium", status: "Open", route: "/", count: 1, age: "just now" }, ...issues]);
-    setTitle(""); setShowForm(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [form, setForm] = useState({ title: "", message: "", severity: "MEDIUM", pageUrl: "", projectSlug: "demo" });
+
+  const loadIssues = useCallback(async ({ quiet = false } = {}) => {
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const [healthResponse, issuesResponse] = await Promise.all([
+        fetch("/api/health"),
+        fetch("/api/issues?limit=100")
+      ]);
+      const health = await healthResponse.json().catch(() => ({}));
+      setApiState(healthResponse.ok && health.database === "connected" ? "online" : "degraded");
+      if (!issuesResponse.ok) {
+        const body = await issuesResponse.json().catch(() => ({}));
+        throw new Error(body.error || "The issues API is not ready yet.");
+      }
+      const body = await issuesResponse.json();
+      setIssues(Array.isArray(body.data) ? body.data : []);
+      setNotice("");
+    } catch (error) {
+      setApiState("offline");
+      setIssues(current => current.length ? current : demoIssues);
+      setNotice(error.message || "Could not load issues. Showing sample data.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { loadIssues(); }, [loadIssues]);
+
+  const filtered = useMemo(() => issues.filter(issue => {
+    const projectName = issue.project?.name ?? "Unassigned";
+    const haystack = [issue.id, issue.title, projectName, issue.pageUrl, issue.message].join(" ").toLowerCase();
+    return haystack.includes(query.toLowerCase())
+      && (severityFilter === "ALL" || issue.severity === severityFilter)
+      && (statusFilter === "ALL" || issue.status === statusFilter);
+  }), [issues, query, severityFilter, statusFilter]);
+
+  const openCount = issues.filter(issue => !["RESOLVED", "IGNORED"].includes(issue.status)).length;
+  const resolvedCount = issues.filter(issue => issue.status === "RESOLVED").length;
+  const criticalCount = issues.filter(issue => issue.severity === "CRITICAL" && !["RESOLVED", "IGNORED"].includes(issue.status)).length;
+  const eventCount = issues.reduce((total, issue) => total + (issue.occurrenceCount || 1), 0);
+  const usingDemo = issues.some(issue => issue.demo);
+
+  async function submitIssue(event) {
+    event.preventDefault();
+    setSaving(true);
+    setFormError("");
+    try {
+      const response = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          message: form.message.trim() || undefined,
+          severity: form.severity,
+          pageUrl: form.pageUrl.trim() || undefined,
+          projectSlug: form.projectSlug.trim() || "demo"
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not create the issue.");
+      setShowForm(false);
+      setForm({ title: "", message: "", severity: "MEDIUM", pageUrl: "", projectSlug: "demo" });
+      await loadIssues({ quiet: true });
+      setNotice(body.deduplicated ? "Issue matched an existing fingerprint; occurrence count updated." : "Issue reported successfully.");
+    } catch (error) {
+      setFormError(error.message || "Could not connect to the API. Start the backend and database, then retry.");
+    } finally {
+      setSaving(false);
+    }
   }
-  return <div className="shell">
-    <aside className="sidebar"><div className="brand"><span className="mark"><Bug size={19}/></span> Repro<span>Bug</span></div><div className="workspace"><span className="avatar">R</span><div><b>ReproBug workspace</b><small>Free plan</small></div></div><p className="label">WORKSPACE</p><div className="nav active"><Activity size={17}/> Overview</div><div className="nav"><Bug size={17}/> Issues <span className="count">{issues.length}</span></div><div className="nav"><ShieldCheck size={17}/> Projects</div><div className="nav"><Zap size={17}/> Analytics</div><div className="sidebar-bottom"><small>BUILD STATUS</small><p><span className="dot"/> {api}</p></div></aside>
-    <main className="main"><header><div><p className="eyebrow">WORKSPACE / OVERVIEW</p><h1>Error intelligence</h1><p className="muted">See what broke, understand why, and help your team reproduce it.</p></div><button className="primary" onClick={() => setShowForm(true)}><CirclePlus size={16}/> Report issue</button></header>
-    <section className="stats"><article><div className="stat-head">Open issues <Bug size={17}/></div><strong>{issues.filter(i=>i.status!=="Resolved").length}</strong><small>Across your workspace</small></article><article><div className="stat-head">Events captured <Activity size={17}/></div><strong>1,284</strong><small className="positive">Demo metric</small></article><article><div className="stat-head">Resolved issues <CheckCircle2 size={17}/></div><strong>{issues.filter(i=>i.status==="Resolved").length}</strong><small>In this sample workspace</small></article><article><div className="stat-head">Critical issues <AlertTriangle size={17}/></div><strong>{issues.filter(i=>i.severity==="Critical" && i.status!=="Resolved").length}</strong><small>Needs attention</small></article></section>
-    <section className="panel"><div className="panel-head"><div><h2>Recent issues</h2><p className="muted">Latest browser errors and reports</p></div><label className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search issues…"/></label></div>
-    <div className="table-wrap"><table><thead><tr><th>ISSUE</th><th>PROJECT</th><th>SEVERITY</th><th>STATUS</th><th>EVENTS</th><th>LAST SEEN</th></tr></thead><tbody>{filtered.map(i=><tr key={i.id}><td><b>{i.title}</b><small>{i.id} · {i.route}</small></td><td>{i.project}</td><td><span className={"pill "+i.severity.toLowerCase()}>{i.severity}</span></td><td><span className="status">{i.status}</span></td><td>{i.count}</td><td>{i.age}</td></tr>)}</tbody></table>{filtered.length===0&&<p className="empty">No issues match your search.</p>}</div>
-    </section><footer>ReproBug · Day 1 foundation <span>Demo issue data · Persistence is the next milestone</span></footer></main>
-    {showForm&&<div className="overlay" onClick={()=>setShowForm(false)}><form className="modal" onSubmit={addIssue} onClick={e=>e.stopPropagation()}><h2>Report an issue</h2><p className="muted">Create a local demo issue. API persistence is not implemented yet.</p><label>Issue title<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="What went wrong?" required/></label><div className="actions"><button type="button" className="secondary" onClick={()=>setShowForm(false)}>Cancel</button><button className="primary" type="submit">Create issue</button></div></form></div>}
-  </div>;
+
+  async function changeStatus(issue, status) {
+    if (issue.demo) {
+      setNotice("Sample issues are read-only. Connect the database to update real issues.");
+      return;
+    }
+    try {
+      const response = await fetch(`/api/issues/${encodeURIComponent(issue.id)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Status update failed.");
+      setIssues(current => current.map(item => item.id === issue.id ? body.data : item));
+      setNotice(`Issue status changed to ${statusLabels[status]}.`);
+    } catch (error) {
+      setNotice(error.message || "Could not update this issue.");
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <a className="brand" href="#overview" aria-label="ReproBug home">
+          <span className="brand-mark"><Bug size={20} strokeWidth={2.4} /></span>
+          <span>repro<span className="brand-accent">bug</span><span className="brand-period">.</span></span>
+        </a>
+        <button className="workspace-switcher" type="button" onClick={() => setNotice("Workspace switching will arrive with authentication and team management.")}>
+          <span className="workspace-avatar">R</span>
+          <span className="workspace-copy"><strong>ReproBug workspace</strong><small>Developer plan</small></span>
+          <ChevronDown size={15} />
+        </button>
+        <p className="nav-label">WORKSPACE</p>
+        <nav className="navigation" aria-label="Main navigation">
+          <a className="nav-item active" href="#overview"><Activity size={17} /><span>Overview</span></a>
+          <a className="nav-item" href="#issues"><Bug size={17} /><span>Issues</span><span className="nav-count">{openCount}</span></a>
+          <button className="nav-item" onClick={() => setNotice("Projects view is planned for the next milestone.")}><ShieldCheck size={17} /><span>Projects</span></button>
+          <button className="nav-item" onClick={() => setNotice("Analytics view is planned after core issue workflows.")}><Zap size={17} /><span>Analytics</span></button>
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="sidebar-tip-icon"><Sparkles size={16} /></div>
+          <strong>Debug with context.</strong>
+          <p>One place to track errors, reproduce bugs, and ship fixes confidently.</p>
+          <a href="https://github.com/yasish08/ReproBug" target="_blank" rel="noreferrer">View repository <ExternalLink size={12} /></a>
+          <div className="sidebar-status"><span className={`status-dot ${apiState}`} /><span>{apiState === "online" ? "API & database connected" : apiState === "checking" ? "Checking connection…" : apiState === "degraded" ? "API reachable · DB unavailable" : "API connection unavailable"}</span></div>
+        </div>
+      </aside>
+
+      <main className="main-content" id="overview">
+        <header className="topbar">
+          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>Overview</strong></div>
+          <div className="topbar-right"><span className="live-indicator"><span /> LIVE WORKSPACE</span><span className="keyboard-hint"><Command size={12} /> REPROBUG</span></div>
+        </header>
+
+        <section className="page-heading">
+          <div>
+            <div className="eyebrow"><span className="eyebrow-line" /> YOUR DEBUGGING COMMAND CENTER</div>
+            <h1>Good morning, <span>developer.</span></h1>
+            <p>Here's what's happening across your applications today.</p>
+          </div>
+          <div className="heading-actions">
+            <button className="button button-quiet" onClick={() => loadIssues({ quiet: true })} disabled={refreshing}><RefreshCw size={15} className={refreshing ? "spin" : ""} /> Refresh</button>
+            <button className="button button-primary" onClick={() => { setFormError(""); setShowForm(true); }}><CirclePlus size={16} /> Report an issue</button>
+          </div>
+        </section>
+
+        {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Dismiss notification">×</button></div>}
+        {usingDemo && <div className="demo-banner"><Sparkles size={16} /><span><strong>Preview mode</strong> — these are sample issues because live database data isn't available yet.</span><button onClick={() => loadIssues({ quiet: true })}>Try connecting <RefreshCw size={13} /></button></div>}
+
+        <section className="metric-grid" aria-label="Issue metrics">
+          <article className="metric-card metric-purple"><div className="metric-top"><span>Open issues</span><span className="metric-icon"><Bug size={17} /></span></div><div className="metric-value">{loading ? "—" : openCount}</div><div className="metric-bottom"><span className="metric-note">Needs investigation or action</span><span className="metric-symbol">↗</span></div><div className="metric-accent" /></article>
+          <article className="metric-card metric-blue"><div className="metric-top"><span>Events captured</span><span className="metric-icon"><Activity size={17} /></span></div><div className="metric-value">{loading ? "—" : eventCount.toLocaleString()}</div><div className="metric-bottom"><span className="metric-note">Occurrences across listed issues</span><span className="metric-symbol">⌁</span></div><div className="metric-accent" /></article>
+          <article className="metric-card metric-green"><div className="metric-top"><span>Resolved issues</span><span className="metric-icon"><CheckCircle2 size={17} /></span></div><div className="metric-value">{loading ? "—" : resolvedCount}</div><div className="metric-bottom"><span className="metric-note">Marked as resolved</span><span className="metric-symbol">✓</span></div><div className="metric-accent" /></article>
+          <article className="metric-card metric-red"><div className="metric-top"><span>Critical issues</span><span className="metric-icon"><AlertTriangle size={17} /></span></div><div className="metric-value">{loading ? "—" : criticalCount}</div><div className="metric-bottom"><span className="metric-note">High-priority attention</span><span className="metric-symbol">!</span></div><div className="metric-accent" /></article>
+        </section>
+
+        <section className="issues-panel" id="issues">
+          <div className="issues-panel-header">
+            <div className="section-title"><div className="section-title-icon"><Bug size={17} /></div><div><h2>Issue inbox</h2><p>Investigate recent errors from across your projects.</p></div></div>
+            <div className="inbox-total"><span className="inbox-total-dot" /> {filtered.length} issues</div>
+          </div>
+          <div className="toolbar">
+            <label className="search-box"><Search size={16} /><input aria-label="Search issues" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search errors, projects, URLs..." /><kbd>⌘ K</kbd></label>
+            <div className="filter-controls"><Filter size={15} /><select aria-label="Filter by severity" value={severityFilter} onChange={event => setSeverityFilter(event.target.value)}><option value="ALL">All severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select><select aria-label="Filter by status" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option><option value="OPEN">Open</option><option value="INVESTIGATING">Investigating</option><option value="RESOLVED">Resolved</option><option value="IGNORED">Ignored</option></select></div>
+          </div>
+          <div className="issue-table-wrap">
+            <table className="issue-table">
+              <thead><tr><th>ISSUE / ERROR</th><th>SEVERITY</th><th>STATUS</th><th>EVENTS</th><th>LAST SEEN</th><th aria-label="Actions" /></tr></thead>
+              <tbody>
+                {loading ? <tr><td colSpan="6" className="table-state"><LoaderCircle size={19} className="spin" /> Loading your issues…</td></tr> : filtered.map((issue, index) => (
+                  <tr key={issue.id}>
+                    <td><div className="issue-title-cell"><span className={`issue-type-icon ${String(issue.severity).toLowerCase()}`}><Bug size={15} /></span><div className="issue-title-copy"><strong>{issue.title}</strong><span><code>{displayId(issue, index)}</code><i />{issue.project?.name ?? "Unassigned"}<i />{issue.pageUrl ? new URL(issue.pageUrl).pathname : "No URL recorded"}</span></div></div></td>
+                    <td><span className={`severity-pill ${String(issue.severity).toLowerCase()}`}><span />{severityLabels[issue.severity] ?? issue.severity}</span></td>
+                    <td><select className={`status-select ${String(issue.status).toLowerCase()}`} aria-label={`Change status for ${issue.title}`} value={issue.status} onChange={event => changeStatus(issue, event.target.value)}><option value="OPEN">Open</option><option value="INVESTIGATING">Investigating</option><option value="RESOLVED">Resolved</option><option value="IGNORED">Ignored</option></select></td>
+                    <td><span className="event-count">{(issue.occurrenceCount || 1).toLocaleString()}</span></td>
+                    <td><span className="last-seen">{timeAgo(issue.lastSeenAt)}</span></td>
+                    <td><button className="row-action" title="Open issue details" aria-label={`Open details for ${issue.title}`} onClick={() => setNotice(issue.message || "Detailed stack traces and reproduction timelines are part of the upcoming issue detail view.")}>↗</button></td>
+                  </tr>
+                ))}
+                {!loading && filtered.length === 0 && <tr><td colSpan="6" className="table-state empty-state"><span className="empty-icon"><Search size={20} /></span><strong>No issues found</strong><span>Try a different search or loosen your filters.</span><button className="button button-quiet" onClick={() => { setQuery(""); setSeverityFilter("ALL"); setStatusFilter("ALL"); }}>Clear filters</button></td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="panel-footer"><span>Showing <strong>{filtered.length}</strong> of <strong>{issues.length}</strong> issues</span><span><span className="footer-dot" /> Updated just now</span></div>
+        </section>
+        <footer className="app-footer"><span>Built for the moments when production breaks.</span><span>REPROBUG <i /> DEVELOPER TOOLING</span></footer>
+      </main>
+
+      {showForm && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="report-modal" onSubmit={submitIssue}>
+        <div className="modal-heading"><div className="modal-icon"><Bug size={19} /></div><button type="button" className="modal-close" aria-label="Close dialog" onClick={() => setShowForm(false)} disabled={saving}>×</button><p className="eyebrow">ISSUE INTAKE</p><h2>Report a bug</h2><p>Capture the context your team needs to reproduce it.</p></div>
+        <div className="form-body">
+          <label className="field-label">Issue title <span>Required</span><input autoFocus maxLength={200} minLength={3} required value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} placeholder="e.g. Checkout crashes after applying a coupon" /></label>
+          <label className="field-label">Error details <span>Optional</span><textarea maxLength={10000} rows={3} value={form.message} onChange={event => setForm({ ...form, message: event.target.value })} placeholder="Paste a safe error message or relevant context..." /></label>
+          <div className="form-row"><label className="field-label">Severity<select value={form.severity} onChange={event => setForm({ ...form, severity: event.target.value })}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></label><label className="field-label">Project slug<input maxLength={60} pattern="[A-Za-z0-9-]+" value={form.projectSlug} onChange={event => setForm({ ...form, projectSlug: event.target.value })} placeholder="demo" /></label></div>
+          <label className="field-label">Page URL <span>Optional</span><input type="url" maxLength={2048} value={form.pageUrl} onChange={event => setForm({ ...form, pageUrl: event.target.value })} placeholder="https://your-app.com/checkout" /></label>
+          <p className="privacy-hint"><ShieldCheck size={14} /> Avoid including passwords, tokens, or personal data in error details.</p>
+          {formError && <p className="form-error" role="alert">{formError}</p>}
+        </div>
+        <div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setShowForm(false)} disabled={saving}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? <><LoaderCircle size={15} className="spin" /> Sending…</> : <><CirclePlus size={15} /> Submit issue</>}</button></div>
+      </form></div>}
+    </div>
+  );
 }
