@@ -25,6 +25,8 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Run backend unit tests
+        run: npm test --workspace=server
       - name: Validate Prisma schema
         run: npx prisma validate --schema server/prisma/schema.prisma
       - name: Generate Prisma Client
