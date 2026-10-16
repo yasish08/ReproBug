@@ -10,7 +10,8 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
 - Express API with security headers, restricted CORS, JSON request limits, and a database-aware health endpoint
 - Prisma/PostgreSQL data model for users, projects, memberships, issues, and issue events
 - Issue API to list/filter issues, report errors, change status, and group matching reports by fingerprint
-- GitHub Actions workflow to validate the Prisma schema, generate Prisma Client, and build the frontend
+- Built-in Node.js unit tests for issue fingerprints and safe page URL validation
+- GitHub Actions workflow to run backend unit tests, validate the Prisma schema, generate Prisma Client, and build the frontend
 
 > **Development status:** The UI has clearly labeled sample data when the API/database cannot supply live issues. The production database still needs to be configured and migrated; authentication, browser extension capture, comprehensive tests, and deployment remain in progress.
 
@@ -63,6 +64,16 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
    - API health: http://localhost:4000/api/health
    - Issues API: http://localhost:4000/api/issues
 
+## Run backend unit tests
+
+The pure utility tests run without PostgreSQL or external services:
+
+```bash
+npm test --workspace=server
+```
+
+They cover deterministic/case-insensitive fingerprints and validation of optional, malformed, non-HTTP, and overlong page URLs.
+
 ## API overview
 
 | Method | Endpoint | Purpose |
@@ -91,6 +102,7 @@ Only include diagnostic data you are authorized to share. Do not send passwords,
 - [x] Dashboard and Express API foundation
 - [x] Initial Prisma data model
 - [x] Issue reporting/listing, status changes, fingerprint grouping
+- [x] Unit tests for fingerprint and page URL validation
 - [x] CI workflow for schema validation and frontend build
 - [ ] Configure PostgreSQL and commit a verified migration
 - [ ] Authentication and project-level authorization
