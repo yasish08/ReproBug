@@ -1,16 +1,10 @@
 import { Router } from "express";
-import { createHash } from "node:crypto";
 import { prisma } from "../lib/prisma.js";
+import { createIssueFingerprint, normalizePageUrl } from "../lib/issue-utils.js";
 
 const router = Router();
 const severities = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 const statuses = new Set(["OPEN", "INVESTIGATING", "RESOLVED", "IGNORED"]);
-
-function fingerprint(title, message = "") {
-  return createHash("sha256")
-    .update(`${title.trim().toLowerCase()}::${message.trim().toLowerCase()}`)
-    .digest("hex");
-}
 
 function serializeIssue(issue) {
   return {
@@ -66,16 +60,11 @@ router.post("/", async (req, res, next) => {
     if (typeof projectSlug !== "string" || !/^[a-z0-9-]{1,60}$/i.test(projectSlug)) {
       return res.status(400).json({ error: "Project slug is invalid." });
     }
-    let safePageUrl = null;
-    if (pageUrl !== undefined && pageUrl !== null && pageUrl !== "") {
-      try {
-        const parsed = new URL(pageUrl);
-        if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Unsupported protocol");
-        safePageUrl = parsed.toString().slice(0, 2048);
-      } catch {
-        return res.status(400).json({ error: "pageUrl must be a valid HTTP or HTTPS URL." });
-      }
+    const normalizedPageUrl = normalizePageUrl(pageUrl);
+    if (!normalizedPageUrl.valid) {
+      return res.status(400).json({ error: "pageUrl must be a valid HTTP or HTTPS URL no longer than 2048 characters." });
     }
+    const safePageUrl = normalizedPageUrl.value;
 
     const project = await prisma.project.upsert({
       where: { slug: projectSlug.toLowerCase() },
@@ -84,7 +73,7 @@ router.post("/", async (req, res, next) => {
     });
     const cleanTitle = title.trim();
     const cleanMessage = typeof message === "string" ? message.trim() : "";
-    const issueFingerprint = fingerprint(cleanTitle, cleanMessage);
+    const issueFingerprint = createIssueFingerprint(cleanTitle, cleanMessage);
     const now = new Date();
     const issue = await prisma.issue.upsert({
       where: { projectId_fingerprint: { projectId: project.id, fingerprint: issueFingerprint } },
