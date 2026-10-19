@@ -106,7 +106,7 @@ Only include diagnostic data you are authorized to share. Do not send passwords,
 - [x] Issue reporting/listing, status changes, fingerprint grouping
 - [x] Unit tests for fingerprint and page URL validation
 - [x] CI workflow for schema validation and frontend build
-- [x] Commit initial PostgreSQL migration and run it in CI against PostgreSQL
+- [ ] Verify the initial migration and API integration suite in PostgreSQL CI
 - [ ] Authentication and project-level authorization
 - [ ] Chrome extension capture with sensitive-data redaction
 - [ ] Reproduction guidance, activity timeline, and analytics
