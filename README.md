@@ -13,7 +13,7 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
 - Built-in Node.js unit tests for issue fingerprints and safe page URL validation
 - GitHub Actions workflow to run backend unit tests, validate the Prisma schema, generate Prisma Client, and build the frontend
 
-> **Development status:** The UI has clearly labeled sample data when the API/database cannot supply live issues. The production database still needs to be configured and migrated; authentication, browser extension capture, comprehensive tests, and deployment remain in progress.
+> **Development status:** The UI has clearly labeled sample data when the API/database cannot supply live issues. An initial PostgreSQL migration is committed and CI now applies it to a temporary PostgreSQL service; local production-like database configuration, authentication, browser extension capture, and deployment remain in progress.
 
 ## Stack
 
@@ -104,7 +104,7 @@ Only include diagnostic data you are authorized to share. Do not send passwords,
 - [x] Issue reporting/listing, status changes, fingerprint grouping
 - [x] Unit tests for fingerprint and page URL validation
 - [x] CI workflow for schema validation and frontend build
-- [ ] Configure PostgreSQL and commit a verified migration
+- [x] Commit initial PostgreSQL migration and run it in CI against PostgreSQL
 - [ ] Authentication and project-level authorization
 - [ ] Chrome extension capture with sensitive-data redaction
 - [ ] Reproduction guidance, activity timeline, and analytics
