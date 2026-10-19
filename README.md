@@ -66,13 +66,15 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
 
 ## Run backend unit tests
 
-The pure utility tests run without PostgreSQL or external services:
+Unit tests run without PostgreSQL; API integration tests require a migrated PostgreSQL database. GitHub Actions provisions PostgreSQL, applies migrations, and runs both suites:
 
 ```bash
-npm test --workspace=server
+npm run test:unit --workspace=server
+npm run db:deploy --workspace=server
+npm run test:integration --workspace=server
 ```
 
-They cover deterministic/case-insensitive fingerprints and validation of optional, malformed, non-HTTP, and overlong page URLs.
+Unit tests cover deterministic/case-insensitive fingerprints and page URL validation. Integration tests exercise health checks, input validation, duplicate issue grouping, listing/filtering, and persisted status changes.
 
 ## API overview
 
