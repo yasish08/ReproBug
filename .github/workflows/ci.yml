@@ -12,8 +12,22 @@ permissions:
 
 jobs:
   validate-and-build:
-    name: Validate schema and build frontend
+    name: Validate, migrate, test, and build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: reprobug
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d reprobug"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/reprobug?schema=public
     steps:
@@ -31,5 +45,7 @@ jobs:
         run: npx prisma validate --schema server/prisma/schema.prisma
       - name: Generate Prisma Client
         run: npm run db:generate --workspace=server
+      - name: Apply database migrations
+        run: npm run db:deploy --workspace=server
       - name: Build React frontend
         run: npm run build
