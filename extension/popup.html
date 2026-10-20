@@ -1,9 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ReproBug Capture</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ReproBug Capture</title>
   <style>
     :root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0b0c15;color:#f4f4fb}
     *{box-sizing:border-box}body{width:340px;margin:0;padding:18px;background:radial-gradient(circle at 90% 0,#29204d 0,transparent 40%),#0b0c15}
@@ -16,14 +14,14 @@
 </head>
 <body>
   <div class="brand"><span class="mark">⌁</span><span>repro<span class="accent">bug</span>.</span></div>
-  <p class="sub">Capture JavaScript errors on the current tab and send them to your workspace. Capture starts only when you click the button.</p>
+  <p class="sub">Sign in to your workspace, then opt in to capture JavaScript errors on the current tab only.</p>
   <label for="apiBaseUrl">API base URL</label><input id="apiBaseUrl" type="url" value="http://localhost:4000" placeholder="https://api.your-domain.com">
-  <label for="projectSlug">Workspace slug</label><input id="projectSlug" maxlength="60" placeholder="workspace-abc123">
-  <label for="token">Session token (expires in 12 hours)</label><input id="token" type="password" autocomplete="off" placeholder="Paste JWT from sign-in response">
-  <button id="save" class="secondary" type="button">Save connection</button>
+  <label for="email">Account email</label><input id="email" type="email" autocomplete="username" placeholder="you@company.com">
+  <label for="password">Account password</label><input id="password" type="password" autocomplete="current-password" placeholder="Your ReproBug password">
+  <button id="save" class="secondary" type="button">Sign in & save connection</button>
   <button id="capture" class="primary" type="button">Enable capture on this tab</button>
-  <div id="status" class="status" role="status">Configure your API URL, workspace slug, and session token.</div>
-  <div class="privacy">Errors are sent only after you enable capture on a tab. Sensitive values such as tokens and passwords are redacted before upload. Avoid capturing pages containing confidential information.</div>
+  <div id="status" class="status" role="status">Sign in to connect this extension to your workspace.</div>
+  <div class="privacy">Capture starts only after you click Enable. Common secrets are redacted before upload; redaction is best-effort. Avoid capturing pages containing confidential information.</div>
   <script src="popup.js"></script>
 </body>
 </html>
