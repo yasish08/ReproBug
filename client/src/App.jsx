@@ -58,6 +58,7 @@ export default function App() {
       const health = await healthResponse.json().catch(() => ({}));
       setApiState(healthResponse.ok && health.database === "connected" ? "online" : "degraded");
       if (!issuesResponse.ok) {
+        if (issuesResponse.status === 401) { sessionStorage.removeItem("reprobug-token"); setToken(""); }
         const body = await issuesResponse.json().catch(() => ({}));
         throw new Error(body.error || "The issues API is not ready yet.");
       }
