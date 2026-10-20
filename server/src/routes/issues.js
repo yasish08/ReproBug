@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { createIssueFingerprint, normalizePageUrl } from "../lib/issue-utils.js";
+import { requireAuth } from "./auth.js";
 
 const router = Router();
 const severities = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
@@ -22,7 +23,7 @@ function serializeIssue(issue) {
   };
 }
 
-router.get("/", async (req, res, next) => {
+router.get("/", requireAuth, async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 100);
     const where = {};
@@ -97,7 +98,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.patch("/:id/status", async (req, res, next) => {
+router.patch("/:id/status", requireAuth, async (req, res, next) => {
   try {
     const status = String(req.body?.status ?? "").toUpperCase();
     if (!statuses.has(status)) return res.status(400).json({ error: "Invalid issue status." });
