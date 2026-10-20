@@ -72,9 +72,9 @@ export default function App() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [token]);
 
-  useEffect(() => { loadIssues(); }, [loadIssues]);
+  useEffect(() => { if (token) loadIssues(); }, [loadIssues, token]);
 
   const filtered = useMemo(() => issues.filter(issue => {
     const projectName = issue.project?.name ?? "Unassigned";
@@ -90,14 +90,30 @@ export default function App() {
   const eventCount = issues.reduce((total, issue) => total + (issue.occurrenceCount || 1), 0);
   const usingDemo = issues.some(issue => issue.demo);
 
-  function handleAuthenticated(data) {\n    sessionStorage.setItem("reprobug-token", data.token);\n    sessionStorage.setItem("reprobug-workspace", data.workspace?.slug || "demo");\n    setWorkspaceSlug(data.workspace?.slug || "demo");\n    setToken(data.token);\n    setForm(current => ({ ...current, projectSlug: data.workspace?.slug || "demo" }));\n  }\n\n  function signOut() {\n    sessionStorage.removeItem("reprobug-token");\n    sessionStorage.removeItem("reprobug-workspace");\n    setToken("");\n    setIssues(demoIssues);\n    setApiState("checking");\n  }\n\n  async function submitIssue(event) {
+  function handleAuthenticated(data) {
+    sessionStorage.setItem("reprobug-token", data.token);
+    sessionStorage.setItem("reprobug-workspace", data.workspace?.slug || "demo");
+    setWorkspaceSlug(data.workspace?.slug || "demo");
+    setToken(data.token);
+    setForm(current => ({ ...current, projectSlug: data.workspace?.slug || "demo" }));
+  }
+
+  function signOut() {
+    sessionStorage.removeItem("reprobug-token");
+    sessionStorage.removeItem("reprobug-workspace");
+    setToken("");
+    setIssues(demoIssues);
+    setApiState("checking");
+  }
+
+  async function submitIssue(event) {
     event.preventDefault();
     setSaving(true);
     setFormError("");
     try {
       const response = await fetch("/api/issues", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: form.title.trim(),
           message: form.message.trim() || undefined,
@@ -127,7 +143,7 @@ export default function App() {
     try {
       const response = await fetch(`/api/issues/${encodeURIComponent(issue.id)}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status })
       });
       const body = await response.json().catch(() => ({}));
@@ -138,6 +154,8 @@ export default function App() {
       setNotice(error.message || "Could not update this issue.");
     }
   }
+
+  if (!token) return <AuthScreen onAuthenticated={handleAuthenticated} />;
 
   return (
     <div className="app-shell">
@@ -162,7 +180,8 @@ export default function App() {
           <div className="sidebar-tip-icon"><Sparkles size={16} /></div>
           <strong>Debug with context.</strong>
           <p>One place to track errors, reproduce bugs, and ship fixes confidently.</p>
-          <a href="https://github.com/yasish08/ReproBug" target="_blank" rel="noreferrer">View repository <ExternalLink size={12} /></a>\n          <button className="sign-out-button" onClick={signOut}>Sign out</button>
+          <a href="https://github.com/yasish08/ReproBug" target="_blank" rel="noreferrer">View repository <ExternalLink size={12} /></a>
+          <button className="sign-out-button" onClick={signOut}>Sign out</button>
           <div className="sidebar-status"><span className={`status-dot ${apiState}`} /><span>{apiState === "online" ? "API & database connected" : apiState === "checking" ? "Checking connection…" : apiState === "degraded" ? "API reachable · DB unavailable" : "API connection unavailable"}</span></div>
         </div>
       </aside>
