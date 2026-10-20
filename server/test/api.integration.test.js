@@ -77,7 +77,7 @@ test("reporting deduplicates repeated errors and increments occurrence count", a
   assert.equal(first.deduplicated, false);
 
   const secondResponse = await fetch(`${baseUrl}/api/issues`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` }, body: JSON.stringify(payload)
   });
   const second = await secondResponse.json();
   assert.equal(secondResponse.status, 201);
