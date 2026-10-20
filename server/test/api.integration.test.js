@@ -37,6 +37,13 @@ after(async () => {
   await prisma.$disconnect();
 });
 
+test("issue inbox rejects unauthenticated requests", async () => {
+  const response = await fetch(`${baseUrl}/api/issues`);
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.match(body.error, /sign in/i);
+});
+
 test("health reports connected database", async () => {
   const response = await fetch(`${baseUrl}/api/health`);
   const body = await response.json();
