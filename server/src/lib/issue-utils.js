@@ -18,6 +18,13 @@ export function normalizePageUrl(value) {
     if (!["http:", "https:"].includes(parsed.protocol)) {
       return { valid: false, value: null };
     }
+    parsed.username = "";
+    parsed.password = "";
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (/(token|key|secret|password|passwd|auth|session|email|code|signature|credential)/i.test(key)) {
+        parsed.searchParams.set(key, "[REDACTED]");
+      }
+    }
     return { valid: true, value: parsed.toString() };
   } catch {
     return { valid: false, value: null };
