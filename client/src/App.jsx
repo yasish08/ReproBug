@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AuthScreen from "./AuthScreen.jsx";
 import {
   Activity, AlertTriangle, Bug, CheckCircle2, ChevronDown, CirclePlus,
   Command, ExternalLink, Filter, LoaderCircle, RefreshCw, Search,
@@ -31,6 +32,8 @@ function displayId(issue, index) {
 }
 
 export default function App() {
+  const [token, setToken] = useState(() => sessionStorage.getItem("reprobug-token") || "");
+  const [workspaceSlug, setWorkspaceSlug] = useState(() => sessionStorage.getItem("reprobug-workspace") || "demo");
   const [issues, setIssues] = useState(demoIssues);
   const [query, setQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("ALL");
@@ -50,7 +53,7 @@ export default function App() {
     try {
       const [healthResponse, issuesResponse] = await Promise.all([
         fetch("/api/health"),
-        fetch("/api/issues?limit=100")
+        fetch("/api/issues?limit=100", { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       ]);
       const health = await healthResponse.json().catch(() => ({}));
       setApiState(healthResponse.ok && health.database === "connected" ? "online" : "degraded");
@@ -87,7 +90,7 @@ export default function App() {
   const eventCount = issues.reduce((total, issue) => total + (issue.occurrenceCount || 1), 0);
   const usingDemo = issues.some(issue => issue.demo);
 
-  async function submitIssue(event) {
+  function handleAuthenticated(data) {\n    sessionStorage.setItem("reprobug-token", data.token);\n    sessionStorage.setItem("reprobug-workspace", data.workspace?.slug || "demo");\n    setWorkspaceSlug(data.workspace?.slug || "demo");\n    setToken(data.token);\n    setForm(current => ({ ...current, projectSlug: data.workspace?.slug || "demo" }));\n  }\n\n  function signOut() {\n    sessionStorage.removeItem("reprobug-token");\n    sessionStorage.removeItem("reprobug-workspace");\n    setToken("");\n    setIssues(demoIssues);\n    setApiState("checking");\n  }\n\n  async function submitIssue(event) {
     event.preventDefault();
     setSaving(true);
     setFormError("");
@@ -145,7 +148,7 @@ export default function App() {
         </a>
         <button className="workspace-switcher" type="button" onClick={() => setNotice("Workspace switching will arrive with authentication and team management.")}>
           <span className="workspace-avatar">R</span>
-          <span className="workspace-copy"><strong>ReproBug workspace</strong><small>Developer plan</small></span>
+          <span className="workspace-copy"><strong>{workspaceSlug}</strong><small>Developer workspace</small></span>
           <ChevronDown size={15} />
         </button>
         <p className="nav-label">WORKSPACE</p>
@@ -159,7 +162,7 @@ export default function App() {
           <div className="sidebar-tip-icon"><Sparkles size={16} /></div>
           <strong>Debug with context.</strong>
           <p>One place to track errors, reproduce bugs, and ship fixes confidently.</p>
-          <a href="https://github.com/yasish08/ReproBug" target="_blank" rel="noreferrer">View repository <ExternalLink size={12} /></a>
+          <a href="https://github.com/yasish08/ReproBug" target="_blank" rel="noreferrer">View repository <ExternalLink size={12} /></a>\n          <button className="sign-out-button" onClick={signOut}>Sign out</button>
           <div className="sidebar-status"><span className={`status-dot ${apiState}`} /><span>{apiState === "online" ? "API & database connected" : apiState === "checking" ? "Checking connection…" : apiState === "degraded" ? "API reachable · DB unavailable" : "API connection unavailable"}</span></div>
         </div>
       </aside>
