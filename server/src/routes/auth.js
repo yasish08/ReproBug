@@ -75,11 +75,14 @@ router.post("/login", async (req, res, next) => {
     if (typeof process.env.JWT_SECRET !== "string" || process.env.JWT_SECRET.length < 32) {
       return res.status(503).json({ error: "Authentication is not configured." });
     }
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { memberships: { include: { project: { select: { id: true, name: true, slug: true } } }, orderBy: { createdAt: "asc" } } }
+    });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ error: "Email or password is incorrect." });
     }
-    res.json({ data: { user: publicUser(user), token: tokenFor(user) } });
+    res.json({ data: { user: publicUser(user), token: tokenFor(user), workspace: user.memberships[0]?.project ?? null } });
   } catch (error) {
     next(error);
   }
