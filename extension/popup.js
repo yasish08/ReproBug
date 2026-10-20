@@ -2,30 +2,41 @@ const $ = id => document.getElementById(id);
 const status = message => { $("status").textContent = message; };
 
 async function loadSettings() {
-  const settings = await chrome.storage.local.get(["apiBaseUrl", "projectSlug", "token"]);
+  const settings = await chrome.storage.local.get(["apiBaseUrl", "email"]);
   $("apiBaseUrl").value = settings.apiBaseUrl || "http://localhost:4000";
-  $("projectSlug").value = settings.projectSlug || "";
-  $("token").value = settings.token || "";
+  $("email").value = settings.email || "";
 }
 $("save").addEventListener("click", async () => {
   try {
     const api = new URL($("apiBaseUrl").value.trim());
     if (!["http:", "https:"].includes(api.protocol)) throw new Error("API URL must use HTTP or HTTPS.");
-    const projectSlug = $("projectSlug").value.trim();
-    const token = $("token").value.trim();
-    if (!/^[a-z0-9-]{1,60}$/i.test(projectSlug)) throw new Error("Enter a valid workspace slug.");
-    if (!token) throw new Error("Paste your session token.");
-    const originPattern = `${api.origin}/*`;
-    const granted = await chrome.permissions.request({ origins: [originPattern] });
-    if (!granted) throw new Error("Allow access to your configured API host to continue.");
-    await chrome.storage.local.set({ apiBaseUrl: api.origin, projectSlug, token });
-    status("Connection saved. Enable capture on a tab to start reporting errors.");
+    const email = $("email").value.trim().toLowerCase();
+    const password = $("password").value;
+    if (!email || !password) throw new Error("Enter your account email and password.");
+    const granted = await chrome.permissions.request({ origins: [`${api.origin}/*`] });
+    if (!granted) throw new Error("Allow access to the configured API host to continue.");
+    const response = await fetch(api.origin + "/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Sign-in failed.");
+    if (!body.data.workspace?.slug) throw new Error("This account has no workspace membership yet.");
+    await chrome.storage.local.set({
+      apiBaseUrl: api.origin,
+      email,
+      projectSlug: body.data.workspace.slug,
+      token: body.data.token
+    });
+    $("password").value = "";
+    status("Connected to " + body.data.workspace.name + ". Enable capture on a tab to begin.");
   } catch (error) { status(error.message); }
 });
 $("capture").addEventListener("click", async () => {
   try {
     const { apiBaseUrl, projectSlug, token } = await chrome.storage.local.get(["apiBaseUrl", "projectSlug", "token"]);
-    if (!apiBaseUrl || !projectSlug || !token) throw new Error("Save your connection before enabling capture.");
+    if (!apiBaseUrl || !projectSlug || !token) throw new Error("Sign in and save your connection first.");
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !/^https?:/.test(tab.url || "")) throw new Error("Open a regular HTTP/HTTPS webpage first.");
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
@@ -45,12 +56,9 @@ $("capture").addEventListener("click", async () => {
         const reason = event.reason;
         send("Unhandled promise rejection", reason?.stack || reason?.message || String(reason));
       });
-      chrome.runtime.sendMessage({ type: "REPROBUG_CAPTURE_ERROR", title: "ReproBug capture enabled", message: "Capture was enabled by the user.", pageUrl: location.href });
+      chrome.runtime.sendMessage({ type: "REPROBUG_CAPTURE_READY" });
     } });
     status("Capture enabled on this tab. Errors after this point will be reported.");
   } catch (error) { status(error.message); }
-});
-chrome.runtime.onMessage.addListener(message => {
-  if (message?.type === "REPROBUG_CAPTURE_RESULT") status(message.ok ? "Error sent to ReproBug." : `Capture failed: ${message.error}`);
 });
 loadSettings();
