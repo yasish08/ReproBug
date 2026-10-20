@@ -56,3 +56,8 @@ jobs:
         run: npm run test:integration --workspace=server
       - name: Build React frontend
         run: npm run build
+      - name: Validate Chrome extension scripts
+        run: |
+          node --check extension/popup.js
+          node --check extension/service-worker.js
+          node -e "JSON.parse(require('node:fs').readFileSync('extension/manifest.json', 'utf8'))"
