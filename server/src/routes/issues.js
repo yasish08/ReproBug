@@ -26,7 +26,7 @@ function serializeIssue(issue) {
 router.get("/", requireAuth, async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 100);
-    const where = {};
+    const where = { project: { members: { some: { userId: req.auth.userId } } } };
     if (typeof req.query.status === "string" && statuses.has(req.query.status.toUpperCase())) {
       where.status = req.query.status.toUpperCase();
     }
@@ -46,7 +46,7 @@ router.get("/", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post("/", requireAuth, async (req, res, next) => {
   try {
     const { title, message, pageUrl, severity = "MEDIUM", projectSlug = "demo" } = req.body ?? {};
     if (typeof title !== "string" || title.trim().length < 3 || title.trim().length > 200) {
@@ -67,11 +67,10 @@ router.post("/", async (req, res, next) => {
     }
     const safePageUrl = normalizedPageUrl.value;
 
-    const project = await prisma.project.upsert({
-      where: { slug: projectSlug.toLowerCase() },
-      update: {},
-      create: { name: projectSlug === "demo" ? "Demo Project" : projectSlug.replace(/-/g, " "), slug: projectSlug.toLowerCase() }
+    const project = await prisma.project.findFirst({
+      where: { slug: projectSlug.toLowerCase(), members: { some: { userId: req.auth.userId } } }
     });
+    if (!project) return res.status(404).json({ error: "Workspace not found or access denied." });
     const cleanTitle = title.trim();
     const cleanMessage = typeof message === "string" ? message.trim() : "";
     const issueFingerprint = createIssueFingerprint(cleanTitle, cleanMessage);
