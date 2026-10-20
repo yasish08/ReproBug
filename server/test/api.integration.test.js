@@ -5,7 +5,9 @@ import { prisma } from "../src/lib/prisma.js";
 
 let server;
 let baseUrl;
-const projectSlug = `test-${Date.now().toString(36)}`;
+const testRunId = Date.now().toString(36);
+const projectSlug = `test-${testRunId}`;
+const testEmail = `integration-${testRunId}@example.test`;
 
 before(async () => {
   server = app.listen(0);
@@ -20,6 +22,8 @@ after(async () => {
   await prisma.issueEvent.deleteMany({ where: { issue: { project: { slug: projectSlug } } } });
   await prisma.issue.deleteMany({ where: { project: { slug: projectSlug } } });
   await prisma.project.deleteMany({ where: { slug: projectSlug } });
+  await prisma.project.deleteMany({ where: { slug: { startsWith: "workspace-" } } });
+  await prisma.user.deleteMany({ where: { email: testEmail } });
   await new Promise(resolve => server.close(resolve));
   await prisma.$disconnect();
 });
@@ -97,4 +101,43 @@ test("issues can be filtered and status changes are persisted", async () => {
     body: JSON.stringify({ status: "NOT_A_STATUS" })
   });
   assert.equal(invalid.status, 400);
+});
+
+test("registration, login, and authenticated profile work", async () => {
+  const register = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: testEmail, password: "correct-horse-battery", name: "Integration Tester" })
+  });
+  const registered = await register.json();
+  assert.equal(register.status, 201);
+  assert.equal(registered.data.user.email, testEmail);
+  assert.ok(registered.data.token);
+  assert.equal(registered.data.workspace.name, "Integration Tester's workspace");
+
+  const duplicate = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: testEmail, password: "correct-horse-battery" })
+  });
+  assert.equal(duplicate.status, 409);
+
+  const login = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: testEmail, password: "correct-horse-battery" })
+  });
+  const loggedIn = await login.json();
+  assert.equal(login.status, 200);
+  assert.ok(loggedIn.data.token);
+
+  const meUnauthenticated = await fetch(`${baseUrl}/api/auth/me`);
+  assert.equal(meUnauthenticated.status, 401);
+  const me = await fetch(`${baseUrl}/api/auth/me`, { headers: { authorization: `Bearer ${loggedIn.data.token}` } });
+  const profile = await me.json();
+  assert.equal(me.status, 200);
+  assert.equal(profile.data.email, testEmail);
+
+  const badLogin = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: testEmail, password: "wrong-password" })
+  });
+  assert.equal(badLogin.status, 401);
 });
