@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: reprobug-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-and-build:
     name: Validate, migrate, test, and build
