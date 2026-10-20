@@ -6,8 +6,10 @@ import { prisma } from "../src/lib/prisma.js";
 let server;
 let baseUrl;
 const testRunId = Date.now().toString(36);
-const projectSlug = `test-${testRunId}`;
+let projectSlug = `test-${testRunId}`;
 const testEmail = `integration-${testRunId}@example.test`;
+const apiEmail = `dashboard-${testRunId}@example.test`;
+let apiToken = "";
 
 before(async () => {
   server = app.listen(0);
@@ -16,12 +18,19 @@ before(async () => {
     server.once("error", reject);
   });
   baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const response = await fetch(`${baseUrl}/api/auth/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: apiEmail, password: "dashboard-test-password", name: "Dashboard Test" }) });
+  const body = await response.json();
+  assert.equal(response.status, 201);
+  apiToken = body.data.token;
+  projectSlug = body.data.workspace.slug;
 });
 
 after(async () => {
   await prisma.issueEvent.deleteMany({ where: { issue: { project: { slug: projectSlug } } } });
   await prisma.issue.deleteMany({ where: { project: { slug: projectSlug } } });
   await prisma.project.deleteMany({ where: { slug: projectSlug } });
+  await prisma.project.deleteMany({ where: { members: { some: { user: { email: apiEmail } } } } });
+  await prisma.user.deleteMany({ where: { email: apiEmail } });
   await prisma.project.deleteMany({ where: { members: { some: { user: { email: testEmail } } } } });
   await prisma.user.deleteMany({ where: { email: testEmail } });
   await new Promise(resolve => server.close(resolve));
@@ -38,13 +47,13 @@ test("health reports connected database", async () => {
 
 test("issue reporting validates input and rejects unsafe URLs", async () => {
   const invalidTitle = await fetch(`${baseUrl}/api/issues`, {
-    method: "POST", headers: { "content-type": "application/json" },
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
     body: JSON.stringify({ title: "x", projectSlug })
   });
   assert.equal(invalidTitle.status, 400);
 
   const unsafeUrl = await fetch(`${baseUrl}/api/issues`, {
-    method: "POST", headers: { "content-type": "application/json" },
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
     body: JSON.stringify({ title: "Unsafe URL test", pageUrl: "javascript:alert(1)", projectSlug })
   });
   assert.equal(unsafeUrl.status, 400);
@@ -59,7 +68,7 @@ test("reporting deduplicates repeated errors and increments occurrence count", a
     projectSlug
   };
   const firstResponse = await fetch(`${baseUrl}/api/issues`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` }, body: JSON.stringify(payload)
   });
   const first = await firstResponse.json();
   assert.equal(firstResponse.status, 201);
@@ -79,17 +88,17 @@ test("reporting deduplicates repeated errors and increments occurrence count", a
 
 test("issues can be filtered and status changes are persisted", async () => {
   const create = await fetch(`${baseUrl}/api/issues`, {
-    method: "POST", headers: { "content-type": "application/json" },
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
     body: JSON.stringify({ title: "Profile page crashes", severity: "CRITICAL", projectSlug })
   });
   const created = await create.json();
-  const listedResponse = await fetch(`${baseUrl}/api/issues?projectId=${created.data.project.id}&severity=CRITICAL`);
+  const listedResponse = await fetch(`${baseUrl}/api/issues?projectId=${created.data.project.id}&severity=CRITICAL`, { headers: { authorization: `Bearer ${apiToken}` } });
   const listed = await listedResponse.json();
   assert.equal(listedResponse.status, 200);
   assert.ok(listed.data.some(issue => issue.id === created.data.id));
 
   const update = await fetch(`${baseUrl}/api/issues/${created.data.id}/status`, {
-    method: "PATCH", headers: { "content-type": "application/json" },
+    method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
     body: JSON.stringify({ status: "RESOLVED" })
   });
   const updated = await update.json();
@@ -97,7 +106,7 @@ test("issues can be filtered and status changes are persisted", async () => {
   assert.equal(updated.data.status, "RESOLVED");
 
   const invalid = await fetch(`${baseUrl}/api/issues/${created.data.id}/status`, {
-    method: "PATCH", headers: { "content-type": "application/json" },
+    method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
     body: JSON.stringify({ status: "NOT_A_STATUS" })
   });
   assert.equal(invalid.status, 400);
