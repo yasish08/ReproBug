@@ -103,13 +103,13 @@ export default function App() {
           message: form.message.trim() || undefined,
           severity: form.severity,
           pageUrl: form.pageUrl.trim() || undefined,
-          projectSlug: form.projectSlug.trim() || "demo"
+          projectSlug: workspaceSlug
         })
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "Could not create the issue.");
       setShowForm(false);
-      setForm({ title: "", message: "", severity: "MEDIUM", pageUrl: "", projectSlug: "demo" });
+      setForm({ title: "", message: "", severity: "MEDIUM", pageUrl: "", projectSlug: workspaceSlug });
       await loadIssues({ quiet: true });
       setNotice(body.deduplicated ? "Issue matched an existing fingerprint; occurrence count updated." : "Issue reported successfully.");
     } catch (error) {
