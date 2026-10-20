@@ -9,6 +9,7 @@ const testRunId = Date.now().toString(36);
 let projectSlug = `test-${testRunId}`;
 const testEmail = `integration-${testRunId}@example.test`;
 const apiEmail = `dashboard-${testRunId}@example.test`;
+const foreignEmail = `foreign-${testRunId}@example.test`;
 let apiToken = "";
 
 before(async () => {
@@ -31,6 +32,8 @@ after(async () => {
   await prisma.project.deleteMany({ where: { slug: projectSlug } });
   await prisma.project.deleteMany({ where: { members: { some: { user: { email: apiEmail } } } } });
   await prisma.user.deleteMany({ where: { email: apiEmail } });
+  await prisma.project.deleteMany({ where: { members: { some: { user: { email: foreignEmail } } } } });
+  await prisma.user.deleteMany({ where: { email: foreignEmail } });
   await prisma.project.deleteMany({ where: { members: { some: { user: { email: testEmail } } } } });
   await prisma.user.deleteMany({ where: { email: testEmail } });
   await new Promise(resolve => server.close(resolve));
@@ -111,6 +114,18 @@ test("issues can be filtered and status changes are persisted", async () => {
   const updated = await update.json();
   assert.equal(update.status, 200);
   assert.equal(updated.data.status, "RESOLVED");
+
+  const foreignRegister = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: foreignEmail, password: "foreign-account-password" })
+  });
+  const foreignBody = await foreignRegister.json();
+  assert.equal(foreignRegister.status, 201);
+  const crossWorkspaceUpdate = await fetch(`${baseUrl}/api/issues/${created.data.id}/status`, {
+    method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${foreignBody.data.token}` },
+    body: JSON.stringify({ status: "IGNORED" })
+  });
+  assert.equal(crossWorkspaceUpdate.status, 404);
 
   const invalid = await fetch(`${baseUrl}/api/issues/${created.data.id}/status`, {
     method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
