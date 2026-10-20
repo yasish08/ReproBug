@@ -101,8 +101,12 @@ router.patch("/:id/status", requireAuth, async (req, res, next) => {
   try {
     const status = String(req.body?.status ?? "").toUpperCase();
     if (!statuses.has(status)) return res.status(400).json({ error: "Invalid issue status." });
+    const accessibleIssue = await prisma.issue.findFirst({
+      where: { id: req.params.id, project: { members: { some: { userId: req.auth.userId } } } }
+    });
+    if (!accessibleIssue) return res.status(404).json({ error: "Issue not found." });
     const issue = await prisma.issue.update({
-      where: { id: req.params.id },
+      where: { id: accessibleIssue.id },
       data: { status },
       include: { project: true }
     });
