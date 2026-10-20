@@ -14,14 +14,14 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
 - Built-in Node.js unit tests for issue fingerprints and safe page URL validation
 - GitHub Actions workflow to run backend unit tests, validate the Prisma schema, generate Prisma Client, and build the frontend
 
-> **Development status:** The UI has clearly labeled sample data when the API/database cannot supply live issues. An initial PostgreSQL migration is committed and CI applies it to a temporary PostgreSQL service. Email/password registration, bcrypt password hashing, 12-hour JWT sessions, authenticated dashboard access, and workspace membership checks are implemented; browser-extension capture and deployment remain in progress.
+> **Development status:** The UI has clearly labeled sample data when the API/database cannot supply live issues. An initial PostgreSQL migration is committed and CI applies it to a temporary PostgreSQL service. Email/password registration, bcrypt password hashing, 12-hour JWT sessions, authenticated dashboard access, and workspace membership checks are implemented; the opt-in Manifest V3 capture extension is implemented; deployment and production hardening remain in progress.
 
 ## Stack
 
 - **Frontend:** React 18, JavaScript, Vite, Lucide
 - **Backend:** Node.js, Express
 - **Database:** PostgreSQL, Prisma
-- **Browser capture (planned):** Chrome Extension Manifest V3
+- **Browser capture:** Chrome Extension Manifest V3 (opt-in current-tab JavaScript error and unhandled-rejection capture)
 - **CI:** GitHub Actions
 
 ## Requirements
@@ -64,6 +64,10 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
    - Frontend: http://localhost:5173
    - API health: http://localhost:4000/api/health
    - Issues API: http://localhost:4000/api/issues
+
+## Chrome extension
+
+The unpacked Manifest V3 extension is in `extension/`. Load it through `chrome://extensions` → **Developer mode** → **Load unpacked**, selecting that folder. In the popup, enter the API URL, sign in with your ReproBug account, then click **Enable capture on this tab**. It captures JavaScript errors and unhandled promise rejections only on the tab you explicitly enable. The extension stores its short-lived session token locally and needs you to sign in again after 12 hours. See [extension setup and privacy notes](extension/README.md).
 
 ## Run backend unit tests
 
@@ -112,7 +116,7 @@ Only include diagnostic data you are authorized to share. Do not send passwords,
 - [x] CI workflow for schema validation and frontend build
 - [ ] Verify the initial migration and API integration suite in PostgreSQL CI
 - [x] Authentication and project-level authorization for dashboard issue APIs
-- [ ] Chrome extension capture with sensitive-data redaction
+- [x] Opt-in Chrome extension capture with best-effort sensitive-data redaction
 - [ ] Reproduction guidance, activity timeline, and analytics
 - [ ] Unit/API/integration tests and security hardening
 - [ ] Deployment, architecture documentation, screenshots, and demo
