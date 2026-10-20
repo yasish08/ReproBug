@@ -112,9 +112,9 @@ Only include diagnostic data you are authorized to share. Do not send passwords,
 - [x] Dashboard and Express API foundation
 - [x] Initial Prisma data model
 - [x] Issue reporting/listing, status changes, fingerprint grouping
-- [x] Unit tests for fingerprint and page URL validation
-- [x] CI workflow for schema validation and frontend build
-- [ ] Verify the initial migration and API integration suite in PostgreSQL CI
+- [x] Unit and PostgreSQL-backed API integration tests for auth, workspace isolation, fingerprints, URL validation, issue reporting, and status updates
+- [x] CI workflow for PostgreSQL migration, backend tests, frontend build, and extension syntax validation
+- [x] Verify the initial migration and API integration suite in PostgreSQL CI
 - [x] Authentication and project-level authorization for dashboard issue APIs
 - [x] Opt-in Chrome extension capture with best-effort sensitive-data redaction
 - [ ] Reproduction guidance, activity timeline, and analytics
