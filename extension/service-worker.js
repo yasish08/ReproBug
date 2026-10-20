@@ -1,3 +1,20 @@
+function sanitizePageUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (!["http:", "https:"].includes(url.protocol)) return "";
+    url.username = "";
+    url.password = "";
+    for (const key of [...url.searchParams.keys()]) {
+      if (/(token|key|secret|password|passwd|auth|session|email|code|signature|credential)/i.test(key)) {
+        url.searchParams.set(key, "[REDACTED]");
+      }
+    }
+    return url.toString().slice(0, 2048);
+  } catch {
+    return "";
+  }
+}
+
 function redact(value) {
   let text = String(value ?? "").slice(0, 8000);
   text = text.replace(/(password|passwd|token|secret|api[_-]?key)(\s*[:=]\s*)[^\s,;]+/ig, "$1$2[REDACTED]");
@@ -18,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       body: JSON.stringify({
         title: redact(message.title).slice(0, 200),
         message: redact(message.message),
-        pageUrl: String(message.pageUrl || "").slice(0, 2048),
+        pageUrl: sanitizePageUrl(message.pageUrl),
         severity: "HIGH",
         projectSlug: settings.projectSlug
       })
