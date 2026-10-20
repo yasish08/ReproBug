@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import issuesRouter from "./routes/issues.js";
+import authRouter from "./routes/auth.js";
 import { prisma } from "./lib/prisma.js";
 
 export const app = express();
@@ -29,6 +30,7 @@ app.get("/api/health", async (_req, res) => {
   });
 });
 
+app.use("/api/auth", authRouter);
 app.use("/api/issues", issuesRouter);
 app.use((req, res) => res.status(404).json({ error: "Not found", path: req.path }));
 app.use((err, _req, res, _next) => {
