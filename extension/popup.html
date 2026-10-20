@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReproBug Capture</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0b0c15;color:#f4f4fb}
+    *{box-sizing:border-box}body{width:340px;margin:0;padding:18px;background:radial-gradient(circle at 90% 0,#29204d 0,transparent 40%),#0b0c15}
+    .brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:800;letter-spacing:-.5px}.mark{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,#9878ff,#6842df);font-size:17px}
+    .accent{color:#a995ff}.sub{font-size:11px;color:#9698b2;line-height:1.6;margin:10px 0 18px}
+    label{display:block;font-size:11px;font-weight:700;color:#bfc0d2;margin:12px 0 6px}input{width:100%;border:1px solid #2c2d41;border-radius:8px;background:#11121e;color:#f8f8ff;padding:10px;font-size:12px;outline:none}input:focus{border-color:#8d74ff}
+    button{width:100%;border:0;border-radius:9px;padding:11px;font-size:12px;font-weight:800;cursor:pointer;margin-top:10px}.primary{background:linear-gradient(135deg,#9b7bff,#7651ec);color:white}.secondary{background:#1a1b2a;color:#d9d9ed;border:1px solid #303147}
+    .status{font-size:11px;line-height:1.5;color:#a9abc2;min-height:28px;margin:12px 0 0}.privacy{border-top:1px solid #25263a;padding-top:12px;margin-top:13px;color:#777b94;font-size:10px;line-height:1.5}
+  </style>
+</head>
+<body>
+  <div class="brand"><span class="mark">⌁</span><span>repro<span class="accent">bug</span>.</span></div>
+  <p class="sub">Capture JavaScript errors on the current tab and send them to your workspace. Capture starts only when you click the button.</p>
+  <label for="apiBaseUrl">API base URL</label><input id="apiBaseUrl" type="url" value="http://localhost:4000" placeholder="https://api.your-domain.com">
+  <label for="projectSlug">Workspace slug</label><input id="projectSlug" maxlength="60" placeholder="workspace-abc123">
+  <label for="token">Session token (expires in 12 hours)</label><input id="token" type="password" autocomplete="off" placeholder="Paste JWT from sign-in response">
+  <button id="save" class="secondary" type="button">Save connection</button>
+  <button id="capture" class="primary" type="button">Enable capture on this tab</button>
+  <div id="status" class="status" role="status">Configure your API URL, workspace slug, and session token.</div>
+  <div class="privacy">Errors are sent only after you enable capture on a tab. Sensitive values such as tokens and passwords are redacted before upload. Avoid capturing pages containing confidential information.</div>
+  <script src="popup.js"></script>
+</body>
+</html>
