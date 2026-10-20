@@ -22,7 +22,7 @@ after(async () => {
   await prisma.issueEvent.deleteMany({ where: { issue: { project: { slug: projectSlug } } } });
   await prisma.issue.deleteMany({ where: { project: { slug: projectSlug } } });
   await prisma.project.deleteMany({ where: { slug: projectSlug } });
-  await prisma.project.deleteMany({ where: { slug: { startsWith: "workspace-" } } });
+  await prisma.project.deleteMany({ where: { members: { some: { user: { email: testEmail } } } } });
   await prisma.user.deleteMany({ where: { email: testEmail } });
   await new Promise(resolve => server.close(resolve));
   await prisma.$disconnect();
