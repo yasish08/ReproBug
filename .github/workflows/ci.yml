@@ -30,6 +30,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/reprobug?schema=public
+      JWT_SECRET: ci-test-secret-at-least-32-characters-long
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
