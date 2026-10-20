@@ -46,3 +46,10 @@ test("rejects non-web, malformed, non-string, and overlong URLs", () => {
   assert.equal(normalizePageUrl(123).valid, false);
   assert.equal(normalizePageUrl("https://example.com/" + "a".repeat(2048)).valid, false);
 });
+
+test("redacts credentials and sensitive query parameters from page URLs", () => {
+  assert.deepEqual(normalizePageUrl("https://user:pass@example.com/checkout?token=abc&email=a%40b.com&tab=orders"), {
+    valid: true,
+    value: "https://example.com/checkout?token=%5BREDACTED%5D&email=%5BREDACTED%5D&tab=orders"
+  });
+});
