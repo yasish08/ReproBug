@@ -19,6 +19,8 @@ function redact(value) {
   let text = String(value ?? "").slice(0, 8000);
   text = text.replace(/(password|passwd|token|secret|api[_-]?key)(\s*[:=]\s*)[^\s,;]+/ig, "$1$2[REDACTED]");
   text = text.replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/ig, "Bearer [REDACTED]");
+  text = text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[REDACTED_EMAIL]");
+  text = text.replace(/(cookie|set-cookie|authorization)(\s*[:=]\s*)[^\r\n]+/ig, "$1$2[REDACTED]");
   return text;
 }
 
