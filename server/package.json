@@ -10,7 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "node --test test/issue-utils.test.js",
+    "test:unit": "node --test test/*.test.js",
     "test:integration": "node --test test/api.integration.test.js"
   },
   "dependencies": {
