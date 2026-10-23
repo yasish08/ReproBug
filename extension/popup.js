@@ -5,6 +5,10 @@ async function loadSettings() {
   const settings = await chrome.storage.local.get(["apiBaseUrl", "email"]);
   $("apiBaseUrl").value = settings.apiBaseUrl || "http://localhost:4000";
   $("email").value = settings.email || "";
+  const badge = await chrome.action.getBadgeText({});
+  if (badge === "!") status("The last report failed. Check the API connection and sign in again if your session expired.");
+  else if (badge === "OK") status("Last browser error was reported successfully.");
+  else if (badge === "↻") status("Last browser error was grouped with an existing issue.");
 }
 $("save").addEventListener("click", async () => {
   try {
@@ -39,6 +43,7 @@ $("capture").addEventListener("click", async () => {
     if (!apiBaseUrl || !projectSlug || !token) throw new Error("Sign in and save your connection first.");
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !/^https?:/.test(tab.url || "")) throw new Error("Open a regular HTTP/HTTPS webpage first.");
+    await chrome.action.setBadgeText({ text: "" });
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
       if (window.__reprobugCaptureInstalled) return;
       window.__reprobugCaptureInstalled = true;
