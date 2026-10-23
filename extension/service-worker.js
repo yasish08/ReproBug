@@ -44,7 +44,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error || "API request failed with status " + response.status);
+    await chrome.action.setBadgeText({ text: body.deduplicated ? "↻" : "OK" });
+    await chrome.action.setBadgeBackgroundColor({ color: body.deduplicated ? "#6b7280" : "#16a34a" });
+    await chrome.action.setTitle({ title: body.deduplicated ? "ReproBug: duplicate error grouped" : "ReproBug: error reported" });
     sendResponse({ ok: true, deduplicated: Boolean(body.deduplicated) });
-  })().catch(error => sendResponse({ ok: false, error: error.message }));
+  })().catch(async error => {
+    await chrome.action.setBadgeText({ text: "!" });
+    await chrome.action.setBadgeBackgroundColor({ color: "#dc2626" });
+    await chrome.action.setTitle({ title: "ReproBug: report failed" });
+    sendResponse({ ok: false, error: error.message });
+  });
   return true;
 });
