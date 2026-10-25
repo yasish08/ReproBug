@@ -96,6 +96,23 @@ test("reporting deduplicates repeated errors and increments occurrence count", a
   assert.equal(second.deduplicated, true);
 });
 
+test("issue detail endpoint returns event timeline and blocks other workspaces", async () => {
+  const createdResponse = await fetch(`${baseUrl}/api/issues`, {
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
+    body: JSON.stringify({ title: "Issue detail timeline test", message: "Example stack trace", projectSlug })
+  });
+  const created = await createdResponse.json();
+  const detailResponse = await fetch(`${baseUrl}/api/issues/${created.data.id}`, { headers: { authorization: `Bearer ${apiToken}` } });
+  const detail = await detailResponse.json();
+  assert.equal(detailResponse.status, 200);
+  assert.equal(detail.data.id, created.data.id);
+  assert.equal(detail.data.message, "Example stack trace");
+  assert.ok(detail.data.events.some(event => event.type === "REPORTED"));
+
+  const missingResponse = await fetch(`${baseUrl}/api/issues/not-an-accessible-issue`, { headers: { authorization: `Bearer ${apiToken}` } });
+  assert.equal(missingResponse.status, 404);
+});
+
 test("issues can be filtered and status changes are persisted", async () => {
   const create = await fetch(`${baseUrl}/api/issues`, {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
