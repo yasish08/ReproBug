@@ -111,6 +111,20 @@ test("issue detail endpoint returns event timeline and blocks other workspaces",
 
   const missingResponse = await fetch(`${baseUrl}/api/issues/not-an-accessible-issue`, { headers: { authorization: `Bearer ${apiToken}` } });
   assert.equal(missingResponse.status, 404);
+
+  const foreignEmailForDetails = `foreign-details-${testRunId}@example.test`;
+  const foreignRegister = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: foreignEmailForDetails, password: "foreign-details-password" })
+  });
+  const foreignAccount = await foreignRegister.json();
+  assert.equal(foreignRegister.status, 201);
+  const deniedDetail = await fetch(`${baseUrl}/api/issues/${created.data.id}`, {
+    headers: { authorization: `Bearer ${foreignAccount.data.token}` }
+  });
+  assert.equal(deniedDetail.status, 404, "issue details must not leak across workspace boundaries");
+  await prisma.project.deleteMany({ where: { members: { some: { user: { email: foreignEmailForDetails } } } } });
+  await prisma.user.deleteMany({ where: { email: foreignEmailForDetails } });
 });
 
 test("issues can be filtered and status changes are persisted", async () => {
