@@ -97,6 +97,38 @@ router.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
+
+router.get("/:id", requireAuth, async (req, res, next) => {
+  try {
+    const issue = await prisma.issue.findFirst({
+      where: { id: req.params.id, project: { members: { some: { userId: req.auth.userId } } } },
+      include: {
+        project: true,
+        events: {
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          include: { user: { select: { email: true, name: true } } }
+        }
+      }
+    });
+    if (!issue) return res.status(404).json({ error: "Issue not found." });
+    res.json({
+      data: {
+        ...serializeIssue(issue),
+        events: issue.events.map(event => ({
+          id: event.id,
+          type: event.eventType,
+          summary: event.summary,
+          createdAt: event.createdAt,
+          actor: event.user?.name || event.user?.email || null
+        }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/:id/status", requireAuth, async (req, res, next) => {
   try {
     const status = String(req.body?.status ?? "").toUpperCase();
