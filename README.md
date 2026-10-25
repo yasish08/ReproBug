@@ -65,6 +65,19 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
    - API health: http://localhost:4000/api/health
    - Issues API: http://localhost:4000/api/issues
 
+## Deploy with Render
+
+A starter Render Blueprint is provided in `render.yaml`. To use it:
+
+1. Push this repository to GitHub and create a new Blueprint in Render connected to this repository.
+2. Review the proposed PostgreSQL, API, and static dashboard services, then apply the Blueprint.
+3. Confirm the API service has `DATABASE_URL` from the managed database and a generated `JWT_SECRET`. Keep both private; never commit production secrets.
+4. If Render assigns different service hostnames, update `CLIENT_ORIGIN` on the API service and `VITE_API_BASE_URL` on the dashboard service to the exact HTTPS origins. Trigger a dashboard redeploy after changing `VITE_API_BASE_URL` because Vite embeds it at build time.
+5. Wait for the API health check at `/api/health` to return HTTP 200 with `database: "connected"`, then register an account, report a test issue, and confirm it appears in the dashboard and timeline.
+6. Configure the Chrome extension's API URL to the deployed API origin and test capture only on a page you control.
+
+The Blueprint is a deployment starting point, not proof that production is live. Review Render plan limits and database persistence/expiry policies before using it for important data. The API allows one configured browser origin; set `CLIENT_ORIGIN` to your actual dashboard origin. `VITE_API_BASE_URL` is optional in local development, where Vite's `/api` proxy is used.
+
 ## Chrome extension
 
 The unpacked Manifest V3 extension is in `extension/`. Load it through `chrome://extensions` → **Developer mode** → **Load unpacked**, selecting that folder. In the popup, enter the API URL, sign in with your ReproBug account, then click **Enable capture on this tab**. It captures JavaScript errors and unhandled promise rejections only on the tab you explicitly enable. The extension stores its short-lived session token locally and needs you to sign in again after 12 hours. See [extension setup and privacy notes](extension/README.md).
