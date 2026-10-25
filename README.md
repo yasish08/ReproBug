@@ -10,7 +10,7 @@ ReproBug is a developer-focused workspace for collecting browser errors, groupin
 - Express API with security headers, restricted CORS, JSON request limits, database-aware health checks, and JWT authentication
 - Prisma/PostgreSQL data model for users, projects, memberships, issues, and issue events
 - Registration/login/profile endpoints, password hashing, expiring JWT sessions, and project-membership-scoped issue reads/updates
-- Issue API to list/filter issues, report errors, change status, and group matching reports by fingerprint
+- Issue API to list/filter issues, report errors, change status, group matching reports by fingerprint, and inspect an access-controlled issue timeline with actor attribution
 - Built-in Node.js unit tests for issue fingerprints and safe page URL validation
 - GitHub Actions workflow to run backend unit tests, validate the Prisma schema, generate Prisma Client, and build the frontend
 
@@ -103,6 +103,7 @@ Unit tests cover deterministic/case-insensitive fingerprints and page URL valida
 | POST | `/api/auth/login` | Sign in and receive a 12-hour JWT |
 | GET | `/api/auth/me` | Return the authenticated account (Bearer token required) |
 | GET | `/api/issues` | List issues; optional `limit`, `status`, `severity`, `projectId` filters |
+| GET | `/api/issues/:id` | Read issue details and the latest 100 activity events (workspace membership required) |
 | POST | `/api/issues` | Report an issue; matching fingerprints increase occurrence count |
 | PATCH | `/api/issues/:id/status` | Change an issue's status |
 
@@ -130,8 +131,9 @@ Only include diagnostic data you are authorized to share. Do not send passwords,
 - [x] Verify the initial migration and API integration suite in PostgreSQL CI
 - [x] Authentication and project-level authorization for dashboard issue APIs
 - [x] Opt-in Chrome extension capture with best-effort sensitive-data redaction
-- [ ] Reproduction guidance, activity timeline, and analytics
-- [ ] Unit/API/integration tests and security hardening
+- [x] Issue details and activity timeline with authenticated actor attribution
+- [ ] Reproduction guidance and analytics
+- [ ] Expand unit/API/integration test coverage and continue security hardening
 - [ ] Deployment, architecture documentation, screenshots, and demo
 
 ## Development
