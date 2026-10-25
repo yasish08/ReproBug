@@ -143,7 +143,7 @@ router.patch("/:id/status", requireAuth, async (req, res, next) => {
       include: { project: true }
     });
     await prisma.issueEvent.create({
-      data: { issueId: issue.id, eventType: "STATUS_CHANGED", summary: `Status changed to ${status}` }
+      data: { issueId: issue.id, userId: req.auth.userId, eventType: "STATUS_CHANGED", summary: `Status changed to ${status}` }
     });
     res.json({ data: serializeIssue(issue) });
   } catch (error) {
