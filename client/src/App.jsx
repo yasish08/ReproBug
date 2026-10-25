@@ -168,9 +168,12 @@ export default function App() {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "Status update failed.");
       setIssues(current => current.map(item => item.id === issue.id ? body.data : item));
+      setSelectedIssue(current => current?.id === issue.id ? { ...current, ...body.data } : current);
       setNotice(`Issue status changed to ${statusLabels[status]}.`);
+      return true;
     } catch (error) {
       setNotice(error.message || "Could not update this issue.");
+      return false;
     }
   }
 
@@ -273,7 +276,7 @@ export default function App() {
           <div className="detail-section"><h3>Page URL</h3>{selectedIssue.pageUrl ? <a href={selectedIssue.pageUrl} target="_blank" rel="noreferrer">{selectedIssue.pageUrl}</a> : <p>No page URL recorded.</p>}</div>
           <div className="detail-section"><h3>Timeline</h3>{detailLoading ? <p>Loading issue history…</p> : selectedIssue.events?.length ? <ol className="issue-timeline">{selectedIssue.events.map(item => <li key={item.id}><span className="timeline-dot" /><div><strong>{item.type.replaceAll("_", " ")}</strong><p>{item.summary || "Issue activity recorded"}</p><time>{new Date(item.createdAt).toLocaleString()}{item.actor ? ` · ${item.actor}` : ""}</time></div></li>)}</ol> : <p>No activity history available yet.</p>}</div>
         </div>
-        <div className="modal-actions"><button className="button button-quiet" onClick={() => setSelectedIssue(null)}>Close</button><button className="button button-primary" onClick={async () => { await changeStatus(selectedIssue, "INVESTIGATING"); setSelectedIssue(current => current ? { ...current, status: "INVESTIGATING" } : current); }}>Mark investigating</button></div>
+        <div className="modal-actions"><button className="button button-quiet" onClick={() => setSelectedIssue(null)}>Close</button><button className="button button-primary" onClick={async () => { const changed = await changeStatus(selectedIssue, "INVESTIGATING"); if (changed) await openIssueDetails({ ...selectedIssue, status: "INVESTIGATING" }); }}>Mark investigating</button></div>
       </section></div>}
       {showForm && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="report-modal" onSubmit={submitIssue}>
         <div className="modal-heading"><div className="modal-icon"><Bug size={19} /></div><button type="button" className="modal-close" aria-label="Close dialog" onClick={() => setShowForm(false)} disabled={saving}>×</button><p className="eyebrow">ISSUE INTAKE</p><h2>Report a bug</h2><p>Capture the context your team needs to reproduce it.</p></div>
