@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Bug, ArrowRight, ShieldCheck, LoaderCircle, Sparkles } from "lucide-react";
+import { apiUrl } from "./lib/api.js";
 
 export default function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
@@ -14,7 +15,7 @@ export default function AuthScreen({ onAuthenticated }) {
     setError("");
     setBusy(true);
     try {
-      const response = await fetch(`/api/auth/${mode === "login" ? "login" : "register"}`, {
+      const response = await fetch(apiUrl(`/api/auth/${mode === "login" ? "login" : "register"}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, ...(mode === "register" ? { name } : {}) })
