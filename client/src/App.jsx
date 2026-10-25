@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthScreen from "./AuthScreen.jsx";
+import { apiUrl } from "./lib/api.js";
 import {
   Activity, AlertTriangle, Bug, CheckCircle2, ChevronDown, CirclePlus,
   Command, ExternalLink, Filter, LoaderCircle, RefreshCw, Search,
@@ -54,8 +55,8 @@ export default function App() {
     else setLoading(true);
     try {
       const [healthResponse, issuesResponse] = await Promise.all([
-        fetch("/api/health"),
-        fetch("/api/issues?limit=100", { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        fetch(apiUrl("/api/health")),
+        fetch(apiUrl("/api/issues?limit=100"), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       ]);
       const health = await healthResponse.json().catch(() => ({}));
       setApiState(healthResponse.ok && health.database === "connected" ? "online" : "degraded");
@@ -114,7 +115,7 @@ export default function App() {
     setSaving(true);
     setFormError("");
     try {
-      const response = await fetch("/api/issues", {
+      const response = await fetch(apiUrl("/api/issues"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -143,7 +144,7 @@ export default function App() {
     setDetailLoading(true);
     setSelectedIssue({ ...issue, events: [] });
     try {
-      const response = await fetch(`/api/issues/${encodeURIComponent(issue.id)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(apiUrl(`/api/issues/${encodeURIComponent(issue.id)}`), { headers: { Authorization: `Bearer ${token}` } });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "Could not load issue details.");
       setSelectedIssue(body.data);
@@ -159,7 +160,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`/api/issues/${encodeURIComponent(issue.id)}/status`, {
+      const response = await fetch(apiUrl(`/api/issues/${encodeURIComponent(issue.id)}/status`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status })
