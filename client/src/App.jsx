@@ -43,6 +43,8 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState({ title: "", message: "", severity: "MEDIUM", pageUrl: "", projectSlug: "demo" });
@@ -134,6 +136,21 @@ export default function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function openIssueDetails(issue) {
+    if (issue.demo) { setSelectedIssue({ ...issue, events: [] }); return; }
+    setDetailLoading(true);
+    setSelectedIssue({ ...issue, events: [] });
+    try {
+      const response = await fetch(`/api/issues/${encodeURIComponent(issue.id)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not load issue details.");
+      setSelectedIssue(body.data);
+    } catch (error) {
+      setNotice(error.message || "Could not load issue details.");
+      setSelectedIssue(null);
+    } finally { setDetailLoading(false); }
   }
 
   async function changeStatus(issue, status) {
@@ -230,12 +247,12 @@ export default function App() {
               <tbody>
                 {loading ? <tr><td colSpan="6" className="table-state"><LoaderCircle size={19} className="spin" /> Loading your issues…</td></tr> : filtered.map((issue, index) => (
                   <tr key={issue.id}>
-                    <td><div className="issue-title-cell"><span className={`issue-type-icon ${String(issue.severity).toLowerCase()}`}><Bug size={15} /></span><div className="issue-title-copy"><strong>{issue.title}</strong><span><code>{displayId(issue, index)}</code><i />{issue.project?.name ?? "Unassigned"}<i />{issue.pageUrl ? new URL(issue.pageUrl).pathname : "No URL recorded"}</span></div></div></td>
+                    <td><div className="issue-title-cell"><span className={`issue-type-icon ${String(issue.severity).toLowerCase()}`}><Bug size={15} /></span><div className="issue-title-copy"><strong className="issue-title-link" onClick={() => openIssueDetails(issue)}>{issue.title}</strong><span><code>{displayId(issue, index)}</code><i />{issue.project?.name ?? "Unassigned"}<i />{issue.pageUrl ? new URL(issue.pageUrl).pathname : "No URL recorded"}</span></div></div></td>
                     <td><span className={`severity-pill ${String(issue.severity).toLowerCase()}`}><span />{severityLabels[issue.severity] ?? issue.severity}</span></td>
                     <td><select className={`status-select ${String(issue.status).toLowerCase()}`} aria-label={`Change status for ${issue.title}`} value={issue.status} onChange={event => changeStatus(issue, event.target.value)}><option value="OPEN">Open</option><option value="INVESTIGATING">Investigating</option><option value="RESOLVED">Resolved</option><option value="IGNORED">Ignored</option></select></td>
                     <td><span className="event-count">{(issue.occurrenceCount || 1).toLocaleString()}</span></td>
                     <td><span className="last-seen">{timeAgo(issue.lastSeenAt)}</span></td>
-                    <td><button className="row-action" title="Open issue details" aria-label={`Open details for ${issue.title}`} onClick={() => setNotice(issue.message || "Detailed stack traces and reproduction timelines are part of the upcoming issue detail view.")}>↗</button></td>
+                    <td><button className="row-action" title="Open issue details" aria-label={`Open details for ${issue.title}`} onClick={() => openIssueDetails(issue)}>↗</button></td>
                   </tr>
                 ))}
                 {!loading && filtered.length === 0 && <tr><td colSpan="6" className="table-state empty-state"><span className="empty-icon"><Search size={20} /></span><strong>No issues found</strong><span>Try a different search or loosen your filters.</span><button className="button button-quiet" onClick={() => { setQuery(""); setSeverityFilter("ALL"); setStatusFilter("ALL"); }}>Clear filters</button></td></tr>}
@@ -247,6 +264,16 @@ export default function App() {
         <footer className="app-footer"><span>Built for the moments when production breaks.</span><span>REPROBUG <i /> DEVELOPER TOOLING</span></footer>
       </main>
 
+      {selectedIssue && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedIssue(null); }}><section className="report-modal issue-detail-modal" role="dialog" aria-modal="true" aria-labelledby="issue-detail-title">
+        <div className="modal-heading"><div className="modal-icon"><Bug size={19} /></div><button type="button" className="modal-close" aria-label="Close issue details" onClick={() => setSelectedIssue(null)}>×</button><p className="eyebrow">ISSUE INVESTIGATION</p><h2 id="issue-detail-title">{selectedIssue.title}</h2><p>{selectedIssue.project?.name || "Sample project"} · {selectedIssue.id}</p></div>
+        <div className="issue-detail-body">
+          <div className="issue-detail-grid"><div><span>Severity</span><strong>{severityLabels[selectedIssue.severity] || selectedIssue.severity}</strong></div><div><span>Status</span><strong>{statusLabels[selectedIssue.status] || selectedIssue.status}</strong></div><div><span>Occurrences</span><strong>{(selectedIssue.occurrenceCount || 1).toLocaleString()}</strong></div></div>
+          <div className="detail-section"><h3>Error message</h3><pre>{selectedIssue.message || "No stack trace or message was provided for this issue."}</pre></div>
+          <div className="detail-section"><h3>Page URL</h3>{selectedIssue.pageUrl ? <a href={selectedIssue.pageUrl} target="_blank" rel="noreferrer">{selectedIssue.pageUrl}</a> : <p>No page URL recorded.</p>}</div>
+          <div className="detail-section"><h3>Timeline</h3>{detailLoading ? <p>Loading issue history…</p> : selectedIssue.events?.length ? <ol className="issue-timeline">{selectedIssue.events.map(item => <li key={item.id}><span className="timeline-dot" /><div><strong>{item.type.replaceAll("_", " ")}</strong><p>{item.summary || "Issue activity recorded"}</p><time>{new Date(item.createdAt).toLocaleString()}{item.actor ? ` · ${item.actor}` : ""}</time></div></li>)}</ol> : <p>No activity history available yet.</p>}</div>
+        </div>
+        <div className="modal-actions"><button className="button button-quiet" onClick={() => setSelectedIssue(null)}>Close</button><button className="button button-primary" onClick={async () => { await changeStatus(selectedIssue, "INVESTIGATING"); setSelectedIssue(current => current ? { ...current, status: "INVESTIGATING" } : current); }}>Mark investigating</button></div>
+      </section></div>}
       {showForm && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !saving) setShowForm(false); }}><form className="report-modal" onSubmit={submitIssue}>
         <div className="modal-heading"><div className="modal-icon"><Bug size={19} /></div><button type="button" className="modal-close" aria-label="Close dialog" onClick={() => setShowForm(false)} disabled={saving}>×</button><p className="eyebrow">ISSUE INTAKE</p><h2>Report a bug</h2><p>Capture the context your team needs to reproduce it.</p></div>
         <div className="form-body">
