@@ -131,6 +131,11 @@ test("issues can be filtered and status changes are persisted", async () => {
   const updated = await update.json();
   assert.equal(update.status, 200);
   assert.equal(updated.data.status, "RESOLVED");
+  const detailAfterUpdate = await fetch(`${baseUrl}/api/issues/${created.data.id}`, { headers: { authorization: `Bearer ${apiToken}` } });
+  const detailAfterUpdateBody = await detailAfterUpdate.json();
+  const statusEvent = detailAfterUpdateBody.data.events.find(event => event.type === "STATUS_CHANGED");
+  assert.ok(statusEvent, "status changes should appear in the issue timeline");
+  assert.equal(statusEvent.actor, "Dashboard Test");
 
   const foreignRegister = await fetch(`${baseUrl}/api/auth/register`, {
     method: "POST", headers: { "content-type": "application/json" },
