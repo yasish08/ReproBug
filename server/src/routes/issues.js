@@ -98,6 +98,57 @@ router.post("/", requireAuth, async (req, res, next) => {
 });
 
 
+router.get("/analytics", requireAuth, async (req, res, next) => {
+  try {
+    const memberScope = { project: { members: { some: { userId: req.auth.userId } } } };
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - 6);
+    since.setUTCHours(0, 0, 0, 0);
+
+    const [total, byStatus, bySeverity, byProject, events] = await Promise.all([
+      prisma.issue.count({ where: memberScope }),
+      prisma.issue.groupBy({ by: ["status"], where: memberScope, _count: { _all: true } }),
+      prisma.issue.groupBy({ by: ["severity"], where: memberScope, _count: { _all: true } }),
+      prisma.issue.groupBy({ by: ["projectId"], where: memberScope, _count: { _all: true }, _sum: { occurrenceCount: true } }),
+      prisma.issueEvent.findMany({
+        where: { createdAt: { gte: since }, issue: memberScope },
+        select: { createdAt: true }
+      })
+    ]);
+
+    const projects = await prisma.project.findMany({
+      where: { members: { some: { userId: req.auth.userId } } },
+      select: { id: true, name: true, slug: true }
+    });
+    const projectNames = new Map(projects.map(project => [project.id, project]));
+    const trend = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(since);
+      date.setUTCDate(since.getUTCDate() + index);
+      const key = date.toISOString().slice(0, 10);
+      return {
+        date: key,
+        count: events.filter(event => event.createdAt.toISOString().slice(0, 10) === key).length
+      };
+    });
+
+    res.json({
+      data: {
+        totalIssues: total,
+        statuses: Object.fromEntries(byStatus.map(item => [item.status, item._count._all])),
+        severities: Object.fromEntries(bySeverity.map(item => [item.severity, item._count._all])),
+        projects: byProject.map(item => ({
+          ...(projectNames.get(item.projectId) || { id: item.projectId, name: "Unknown project", slug: "" }),
+          issues: item._count._all,
+          occurrences: item._sum.occurrenceCount || 0
+        })).sort((a, b) => b.issues - a.issues).slice(0, 8),
+        eventTrend: trend
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/:id", requireAuth, async (req, res, next) => {
   try {
     const issue = await prisma.issue.findFirst({
