@@ -55,6 +55,30 @@ test("health reports connected database", async () => {
   assert.equal(body.service, "reprobug-api");
 });
 
+test("workspace analytics summarizes only accessible issues and recent activity", async () => {
+  const create = await fetch(`${baseUrl}/api/issues`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
+    body: JSON.stringify({ title: "Analytics integration regression", severity: "HIGH", projectSlug })
+  });
+  const created = await create.json();
+  assert.equal(create.status, 201);
+
+  const response = await fetch(`${baseUrl}/api/issues/analytics`, {
+    headers: { authorization: `Bearer ${apiToken}` }
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.ok(body.data.totalIssues >= 1);
+  assert.ok(body.data.severities.HIGH >= 1);
+  assert.ok(body.data.projects.some(project => project.id === created.data.project.id));
+  assert.equal(body.data.eventTrend.length, 7);
+  assert.ok(body.data.eventTrend.every(day => /^\\d{4}-\\d{2}-\\d{2}$/.test(day.date) && day.count >= 0));
+
+  const unauthenticated = await fetch(`${baseUrl}/api/issues/analytics`);
+  assert.equal(unauthenticated.status, 401);
+});
+
 test("issue reporting validates input and rejects unsafe URLs", async () => {
   const invalidTitle = await fetch(`${baseUrl}/api/issues`, {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
