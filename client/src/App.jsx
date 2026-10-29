@@ -47,6 +47,9 @@ export default function App() {
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState({ title: "", message: "", severity: "MEDIUM", pageUrl: "", projectSlug: "demo" });
 
@@ -108,6 +111,24 @@ export default function App() {
     setToken("");
     setIssues(demoIssues);
     setApiState("checking");
+  }
+
+  async function openAnalytics() {
+    setShowAnalytics(true);
+    setAnalyticsLoading(true);
+    try {
+      const response = await fetch(apiUrl("/api/issues/analytics"), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not load analytics.");
+      setAnalytics(body.data);
+    } catch (error) {
+      setNotice(error.message || "Could not load analytics.");
+      setAnalytics(null);
+    } finally {
+      setAnalyticsLoading(false);
+    }
   }
 
   async function submitIssue(event) {
@@ -196,7 +217,7 @@ export default function App() {
           <a className="nav-item active" href="#overview"><Activity size={17} /><span>Overview</span></a>
           <a className="nav-item" href="#issues"><Bug size={17} /><span>Issues</span><span className="nav-count">{openCount}</span></a>
           <button className="nav-item" onClick={() => setNotice("Projects view is planned for the next milestone.")}><ShieldCheck size={17} /><span>Projects</span></button>
-          <button className="nav-item" onClick={() => setNotice("Analytics view is planned after core issue workflows.")}><Zap size={17} /><span>Analytics</span></button>
+          <button className={`nav-item ${showAnalytics ? "active" : ""}`} onClick={openAnalytics}><Zap size={17} /><span>Analytics</span></button>
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-tip-icon"><Sparkles size={16} /></div>
@@ -236,6 +257,34 @@ export default function App() {
           <article className="metric-card metric-red"><div className="metric-top"><span>Critical issues</span><span className="metric-icon"><AlertTriangle size={17} /></span></div><div className="metric-value">{loading ? "—" : criticalCount}</div><div className="metric-bottom"><span className="metric-note">High-priority attention</span><span className="metric-symbol">!</span></div><div className="metric-accent" /></article>
         </section>
 
+        {showAnalytics && <section className="analytics-panel" aria-label="Workspace analytics">
+          <div className="issues-panel-header">
+            <div className="section-title"><div className="section-title-icon"><Zap size={17} /></div><div><h2>Workspace analytics</h2><p>Live issue and event activity for projects you can access.</p></div></div>
+            <button className="button button-quiet" onClick={openAnalytics} disabled={analyticsLoading}><RefreshCw size={14} className={analyticsLoading ? "spin" : ""} /> Refresh analytics</button>
+          </div>
+          {analyticsLoading && <p className="analytics-state"><LoaderCircle size={16} className="spin" /> Loading workspace analytics…</p>}
+          {!analyticsLoading && analytics && <>
+            <div className="analytics-summary">
+              <article><span>Total issues</span><strong>{analytics.totalIssues}</strong></article>
+              <article><span>Open</span><strong>{analytics.statuses?.OPEN || 0}</strong></article>
+              <article><span>Investigating</span><strong>{analytics.statuses?.INVESTIGATING || 0}</strong></article>
+              <article><span>Resolved</span><strong>{analytics.statuses?.RESOLVED || 0}</strong></article>
+            </div>
+            <div className="analytics-columns">
+              <div className="analytics-card"><h3>Issue severity</h3>{["CRITICAL", "HIGH", "MEDIUM", "LOW"].map(level => {
+                const count = analytics.severities?.[level] || 0;
+                const max = Math.max(1, ...Object.values(analytics.severities || {}));
+                return <div className="analytics-bar-row" key={level}><span>{severityLabels[level]}</span><div className="analytics-bar-track"><span className={level.toLowerCase()} style={{ width: `${count / max * 100}%` }} /></div><strong>{count}</strong></div>;
+              })}</div>
+              <div className="analytics-card"><h3>Activity · last 7 days</h3><div className="trend-bars">{(analytics.eventTrend || []).map(day => {
+                const max = Math.max(1, ...(analytics.eventTrend || []).map(item => item.count));
+                return <div className="trend-day" key={day.date} title={`${day.date}: ${day.count} events`}><span className="trend-count">{day.count}</span><div className="trend-track"><span style={{ height: `${Math.max(day.count ? 8 : 2, day.count / max * 100)}%` }} /></div><small>{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</small></div>;
+              })}</div><p className="analytics-footnote">Based on recorded issue timeline events.</p></div>
+            </div>
+            <div className="analytics-card analytics-projects"><h3>Projects with reported issues</h3>{analytics.projects?.length ? <div className="analytics-project-list">{analytics.projects.map(project => <div key={project.id}><span><strong>{project.name}</strong><small>{project.slug}</small></span><span>{project.issues} issues · {project.occurrences} occurrences</span></div>)}</div> : <p className="analytics-state">No project issues to analyze yet.</p>}</div>
+          </>}
+          {!analyticsLoading && !analytics && <p className="analytics-state">Analytics are unavailable. Check the API connection and try again.</p>}
+        </section>}
         <section className="issues-panel" id="issues">
           <div className="issues-panel-header">
             <div className="section-title"><div className="section-title-icon"><Bug size={17} /></div><div><h2>Issue inbox</h2><p>Investigate recent errors from across your projects.</p></div></div>
