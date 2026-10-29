@@ -144,7 +144,7 @@ export default function App() {
           message: form.message.trim() || undefined,
           severity: form.severity,
           pageUrl: form.pageUrl.trim() || undefined,
-          projectSlug: workspaceSlug
+          projectSlug: form.projectSlug.trim() || workspaceSlug
         })
       });
       const body = await response.json().catch(() => ({}));
