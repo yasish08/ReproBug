@@ -73,7 +73,7 @@ test("workspace analytics summarizes only accessible issues and recent activity"
   assert.ok(body.data.severities.HIGH >= 1);
   assert.ok(body.data.projects.some(project => project.id === created.data.project.id));
   assert.equal(body.data.eventTrend.length, 7);
-  assert.ok(body.data.eventTrend.every(day => /^\\d{4}-\\d{2}-\\d{2}$/.test(day.date) && day.count >= 0));
+  assert.ok(body.data.eventTrend.every(day => /^\d{4}-\d{2}-\d{2}$/.test(day.date) && day.count >= 0));
 
   const unauthenticated = await fetch(`${baseUrl}/api/issues/analytics`);
   assert.equal(unauthenticated.status, 401);
