@@ -48,6 +48,14 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectFormOpen, setProjectFormOpen] = useState(false);
+  const [projectSaving, setProjectSaving] = useState(false);
+  const [projectError, setProjectError] = useState("");
+  const [projectForm, setProjectForm] = useState({ name: "", slug: "", description: "" });
+  const [activeProjectSlug, setActiveProjectSlug] = useState("ALL");
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [formError, setFormError] = useState("");
@@ -129,6 +137,45 @@ export default function App() {
     } finally {
       setAnalyticsLoading(false);
     }
+  }
+
+  async function loadProjects() {
+    setProjectsLoading(true);
+    try {
+      const response = await fetch(apiUrl("/api/projects"), { headers: { Authorization: `Bearer ${token}` } });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not load projects.");
+      setProjects(Array.isArray(body.data) ? body.data : []);
+    } catch (error) {
+      setNotice(error.message || "Could not load projects.");
+    } finally { setProjectsLoading(false); }
+  }
+
+  async function openProjects() {
+    setShowProjects(true);
+    setShowAnalytics(false);
+    await loadProjects();
+  }
+
+  async function createProject(event) {
+    event.preventDefault();
+    setProjectSaving(true);
+    setProjectError("");
+    try {
+      const response = await fetch(apiUrl("/api/projects"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(projectForm)
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not create project.");
+      setProjects(current => [...current, body.data]);
+      setProjectForm({ name: "", slug: "", description: "" });
+      setProjectFormOpen(false);
+      setNotice("Project created successfully.");
+    } catch (error) {
+      setProjectError(error.message || "Could not create project.");
+    } finally { setProjectSaving(false); }
   }
 
   async function submitIssue(event) {
@@ -216,8 +263,8 @@ export default function App() {
         <nav className="navigation" aria-label="Main navigation">
           <a className="nav-item active" href="#overview"><Activity size={17} /><span>Overview</span></a>
           <a className="nav-item" href="#issues"><Bug size={17} /><span>Issues</span><span className="nav-count">{openCount}</span></a>
-          <button className="nav-item" onClick={() => setNotice("Projects view is planned for the next milestone.")}><ShieldCheck size={17} /><span>Projects</span></button>
-          <button className={`nav-item ${showAnalytics ? "active" : ""}`} onClick={openAnalytics}><Zap size={17} /><span>Analytics</span></button>
+          <button className={`nav-item ${showProjects ? "active" : ""}`} onClick={openProjects}><ShieldCheck size={17} /><span>Projects</span></button>
+          <button className={`nav-item ${showAnalytics ? "active" : ""}`} onClick={() => { setShowProjects(false); openAnalytics(); }}><Zap size={17} /><span>Analytics</span></button>
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-tip-icon"><Sparkles size={16} /></div>
@@ -257,6 +304,28 @@ export default function App() {
           <article className="metric-card metric-red"><div className="metric-top"><span>Critical issues</span><span className="metric-icon"><AlertTriangle size={17} /></span></div><div className="metric-value">{loading ? "—" : criticalCount}</div><div className="metric-bottom"><span className="metric-note">High-priority attention</span><span className="metric-symbol">!</span></div><div className="metric-accent" /></article>
         </section>
 
+        {showProjects && <section className="analytics-panel projects-panel" aria-label="Projects">
+          <div className="issues-panel-header">
+            <div className="section-title"><div className="section-title-icon"><ShieldCheck size={17} /></div><div><h2>Projects</h2><p>Manage the projects connected to this workspace.</p></div></div>
+            <div className="project-actions"><button className="button button-quiet" onClick={loadProjects} disabled={projectsLoading}><RefreshCw size={14} className={projectsLoading ? "spin" : ""} /> Refresh</button><button className="button button-primary" onClick={() => setProjectFormOpen(value => !value)}><CirclePlus size={14} /> New project</button></div>
+          </div>
+          {projectFormOpen && <form className="project-create-form" onSubmit={createProject}>
+            <label className="field-label">Project name<input required minLength={2} maxLength={80} value={projectForm.name} onChange={event => setProjectForm(current => ({ ...current, name: event.target.value, slug: current.slug || event.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") }))} placeholder="e.g. Customer Portal" /></label>
+            <label className="field-label">Project slug<input required pattern="[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?" maxLength={60} value={projectForm.slug} onChange={event => setProjectForm(current => ({ ...current, slug: event.target.value.toLowerCase() }))} placeholder="customer-portal" /></label>
+            <label className="field-label">Description<input maxLength={500} value={projectForm.description} onChange={event => setProjectForm(current => ({ ...current, description: event.target.value }))} placeholder="What is this project for?" /></label>
+            {projectError && <p className="form-error" role="alert">{projectError}</p>}
+            <div className="project-form-actions"><button type="button" className="button button-quiet" onClick={() => setProjectFormOpen(false)}>Cancel</button><button type="submit" className="button button-primary" disabled={projectSaving}>{projectSaving ? "Creating…" : "Create project"}</button></div>
+          </form>}
+          {projectsLoading ? <p className="analytics-state"><LoaderCircle size={16} className="spin" /> Loading projects…</p> : <div className="project-card-grid">
+            {projects.map(project => <article className={`project-card ${activeProjectSlug === project.slug ? "selected" : ""}`} key={project.id}>
+              <div className="project-card-top"><span className="project-card-icon"><ShieldCheck size={17} /></span><span className="project-role">Workspace member</span></div>
+              <h3>{project.name}</h3><p className="project-card-slug">{project.slug}</p><p className="project-card-description">{project.description || "No description added yet."}</p>
+              <div className="project-card-stats"><span><strong>{project.issueCount}</strong> issues</span><span><strong>{project.memberCount}</strong> members</span></div>
+              <button className="button button-quiet project-select-button" onClick={() => { setActiveProjectSlug(activeProjectSlug === project.slug ? "ALL" : project.slug); setShowProjects(false); setNotice(activeProjectSlug === project.slug ? "Showing issues from all projects." : `Filtering issues for ${project.name}.`); }}>{activeProjectSlug === project.slug ? "Show all issues" : "View project issues"}</button>
+            </article>)}
+            {!projects.length && <p className="analytics-state">No projects yet. Create your first project to start grouping issues.</p>}
+          </div>}
+        </section>}
         {showAnalytics && <section className="analytics-panel" aria-label="Workspace analytics">
           <div className="issues-panel-header">
             <div className="section-title"><div className="section-title-icon"><Zap size={17} /></div><div><h2>Workspace analytics</h2><p>Live issue and event activity for projects you can access.</p></div></div>
