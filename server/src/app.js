@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import issuesRouter from "./routes/issues.js";
 import authRouter from "./routes/auth.js";
+import projectsRouter from "./routes/projects.js";
 import { authRateLimit } from "./middleware/auth-rate-limit.js";
 import { prisma } from "./lib/prisma.js";
 
@@ -33,6 +34,7 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api/auth", authRateLimit, authRouter);
 app.use("/api/issues", issuesRouter);
+app.use("/api/projects", projectsRouter);
 app.use((req, res) => res.status(404).json({ error: "Not found", path: req.path }));
 app.use((err, _req, res, _next) => {
   console.error("Unhandled request error:", err.message);
