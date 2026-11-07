@@ -79,6 +79,58 @@ test("workspace analytics summarizes only accessible issues and recent activity"
   assert.equal(unauthenticated.status, 401);
 });
 
+test("projects can be created, listed, and isolated by workspace membership", async () => {
+  const slug = `project-${testRunId}`;
+  const createdResponse = await fetch(`${baseUrl}/api/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
+    body: JSON.stringify({ name: "Interview Demo Project", slug, description: "Project management integration test" })
+  });
+  const created = await createdResponse.json();
+  assert.equal(createdResponse.status, 201);
+  assert.equal(created.data.slug, slug);
+  assert.equal(created.data.memberCount, 1);
+  assert.equal(created.data.issueCount, 0);
+
+  const listedResponse = await fetch(`${baseUrl}/api/projects`, {
+    headers: { authorization: `Bearer ${apiToken}` }
+  });
+  const listed = await listedResponse.json();
+  assert.equal(listedResponse.status, 200);
+  assert.ok(listed.data.some(project => project.id === created.data.id));
+
+  const duplicate = await fetch(`${baseUrl}/api/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
+    body: JSON.stringify({ name: "Duplicate Project", slug })
+  });
+  assert.equal(duplicate.status, 409);
+
+  const invalid = await fetch(`${baseUrl}/api/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
+    body: JSON.stringify({ name: "X", slug: "bad slug" })
+  });
+  assert.equal(invalid.status, 400);
+
+  const outsiderEmail = `outsider-${testRunId}@example.test`;
+  const outsiderResponse = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: outsiderEmail, password: "outsider-test-password" })
+  });
+  const outsider = await outsiderResponse.json();
+  assert.equal(outsiderResponse.status, 201);
+  const outsiderProjects = await fetch(`${baseUrl}/api/projects`, {
+    headers: { authorization: `Bearer ${outsider.data.token}` }
+  });
+  const outsiderBody = await outsiderProjects.json();
+  assert.equal(outsiderProjects.status, 200);
+  assert.ok(!outsiderBody.data.some(project => project.id === created.data.id));
+  await prisma.project.deleteMany({ where: { slug } });
+  await prisma.project.deleteMany({ where: { members: { some: { user: { email: outsiderEmail } } } } });
+  await prisma.user.deleteMany({ where: { email: outsiderEmail } });
+});
+
 test("issue reporting validates input and rejects unsafe URLs", async () => {
   const invalidTitle = await fetch(`${baseUrl}/api/issues`, {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${apiToken}` },
