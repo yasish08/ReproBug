@@ -98,3 +98,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .analytics-project-list>div>span:last-child{color:#a6a8bb;font-size:10px;text-align:right}
 .analytics-state{display:flex;align-items:center;justify-content:center;gap:9px;padding:30px 16px;margin:0;color:#9296aa;font-size:11px}
 @media(max-width:760px){.analytics-summary{grid-template-columns:repeat(2,minmax(0,1fr));padding:12px}.analytics-columns{grid-template-columns:1fr;padding:0 12px 12px}.analytics-projects{margin:0 12px 12px}.analytics-panel .issues-panel-header{align-items:center;flex-direction:row}.analytics-panel .issues-panel-header .button{white-space:nowrap;padding:8px;font-size:9px}}
+
+
+.project-actions{display:flex;gap:8px;align-items:center}
+.project-create-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px;margin:18px 0;background:var(--panel-raised);border:1px solid var(--border);border-radius:12px}
+.project-create-form .field-label:last-of-type{grid-column:1/-1}
+.project-create-form input{width:100%;margin-top:7px;padding:11px 12px;color:var(--text);background:#0c0e15;border:1px solid var(--border);border-radius:8px;outline:none}
+.project-create-form input:focus{border-color:var(--purple)}
+.project-form-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
+.project-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:14px;margin-top:18px}
+.project-card{min-width:0;padding:17px;background:var(--panel-raised);border:1px solid var(--border);border-radius:12px}
+.project-card.selected{border-color:var(--purple)}
+.project-card-top{display:flex;align-items:center;justify-content:space-between}
+.project-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#29243f;color:var(--purple)}
+.project-role,.project-card-slug{font:11px 'DM Mono',monospace;color:var(--muted)}
+.project-card h3{margin:15px 0 4px;font-size:15px}
+.project-card-slug{margin:0}
+.project-card-description{min-height:34px;margin:13px 0;color:var(--muted);font-size:12px;line-height:1.5}
+.project-card-stats{display:flex;gap:20px;padding:12px 0;margin:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);color:var(--muted);font-size:12px}
+.project-card-stats strong{color:var(--text)}
+.project-select-button{width:100%;justify-content:center}
+@media(max-width:640px){.project-create-form{grid-template-columns:1fr}.project-create-form .field-label:last-of-type,.project-form-actions{grid-column:auto}.project-actions{flex-wrap:wrap}}
